@@ -20,6 +20,8 @@ import { escapeHtml } from './ui.js';
 import * as vistaSessioni from './views/sessioni.js';
 import * as vistaSessione from './views/sessione.js';
 import * as vistaDiagnosi from './views/diagnosi.js';
+import * as vistaConfronto from './views/confronto.js';
+import * as vistaImpostazioni from './views/impostazioni.js';
 
 export { escapeHtml };
 
@@ -84,18 +86,6 @@ document.addEventListener('click', (ev) => {
 
 /* --- Rotte ---------------------------------------------------------------- */
 
-/** Segnaposto per le schermate del Task 7. */
-const inArrivo = (titolo, testo) => ({
-  render(ctx) {
-    ctx.render(`
-      <section class="card">
-        <h2 class="card-title">${escapeHtml(titolo)}</h2>
-        <p class="card-sub">In arrivo</p>
-        <p class="field-hint">${escapeHtml(testo)}</p>
-      </section>`);
-  },
-});
-
 /**
  * Ogni voce: `percorso` con segmenti `:nome` per i parametri, `tab` da
  * evidenziare nella barra in basso, `etichetta` per la topbar e `vista`
@@ -105,9 +95,8 @@ const ROTTE = [
   { percorso: '/sessioni', tab: 'sessioni', etichetta: 'Sessioni', vista: vistaSessioni },
   { percorso: '/sessione/:id', tab: 'sessioni', etichetta: 'Sessione', vista: vistaSessione },
   { percorso: '/diagnosi/:id', tab: 'sessioni', etichetta: 'Diagnosi', vista: vistaDiagnosi },
-  // Task 7: `./views/confronto.js` e `./views/impostazioni.js`.
-  { percorso: '/confronto', tab: 'confronto', etichetta: 'Confronto', vista: inArrivo('Confronto', 'Il confronto fra due sessioni arriva con il prossimo passaggio di lavoro.') },
-  { percorso: '/impostazioni', tab: 'impostazioni', etichetta: 'Impostazioni', vista: inArrivo('Impostazioni', 'Soglie, mescole, backup e ripristino arrivano con il prossimo passaggio di lavoro.') },
+  { percorso: '/confronto', tab: 'confronto', etichetta: 'Confronto', vista: vistaConfronto },
+  { percorso: '/impostazioni', tab: 'impostazioni', etichetta: 'Impostazioni', vista: vistaImpostazioni },
 ];
 
 const ROTTA_DEFAULT = ROTTE[0];
