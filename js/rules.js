@@ -28,13 +28,18 @@ const RAFFORZA = {
   blistering: [{ area: 'pressione', titolo: /alta/i }],
 };
 
+/**
+ * Convenzione su tutta l'app: una pressione di partenza più bassa lascia
+ * flettere di più la carcassa, quindi la gomma scalda di più; una pressione
+ * più alta la fa lavorare meno e scaldare meno.
+ */
 const AZIONE = {
-  graining: 'Provare una mescola più morbida o far lavorare di più la gomma con pressioni di partenza un po’ più alte.',
-  blistering: 'Provare una mescola più dura o abbassare le pressioni di partenza.',
+  graining: 'Provare una mescola più morbida, oppure abbassare le pressioni di partenza di 0,1-0,2 bar per farla scaldare di più.',
+  blistering: 'Provare una mescola più dura. Se il centro del battistrada è la zona più calda la pressione è troppo alta e va abbassata; altrimenti alzarla di 0,1-0,2 bar per far lavorare meno la gomma.',
   spallaInt: 'Ridurre il camber negativo.',
   spallaEst: 'Aumentare il camber negativo o alzare la pressione.',
   chunking: 'Passare a una mescola più dura, più adatta a questo fondo.',
-  vetrificata: 'Alzare le pressioni di partenza o scegliere una mescola più morbida.',
+  vetrificata: 'Abbassare le pressioni di partenza o scegliere una mescola più morbida.',
 };
 
 /** Sul fondo sterrato gli strappi pesano di più: la mescola è chiaramente sbagliata. */
@@ -58,14 +63,19 @@ function applicaDegrado(codice, codiceDegrado, fondo, out) {
 function regoleRuota(codice, r, s, fondo, out) {
   const { int, cen, est } = r.fine;
   const nome = ETICHETTE_RUOTE[codice];
+  // Con il camber statico giusto la spalla interna finisce la prova più calda
+  // dell'esterna: il riferimento non è lo zero, è `camberTarget`.
   const dCamber = int - est;
-  let liv = livello(Math.abs(dCamber), s.camber);
+  const atteso = num(s.camberTarget) ? s.camberTarget : 0;
+  const scarto = dCamber - atteso;
+  let liv = livello(Math.abs(scarto), s.camber);
   if (liv) {
-    const troppo = dCamber > 0;
+    const troppo = scarto > 0;
+    const lato = dCamber >= 0 ? 'interna' : 'esterna';
     out.push({ ambito: codice, area: 'camber', intensita: liv,
       titolo: troppo ? 'Troppo camber negativo' : 'Camber insufficiente',
-      testo: `${nome}: spalla ${troppo ? 'interna' : 'esterna'} più calda di ${gradi(Math.abs(dCamber))} °C. ` +
-             `Conviene ${troppo ? 'ridurre' : 'aumentare'} il camber negativo.` });
+      testo: `${nome}: spalla ${lato} più calda di ${gradi(Math.abs(dCamber))} °C, ` +
+             `contro i ${gradi(atteso)} °C attesi: ${troppo ? 'ridurre' : 'aumentare'} il camber negativo.` });
   }
   const dPress = cen - (int + est) / 2;
   liv = livello(Math.abs(dPress), s.pressione);
@@ -98,7 +108,7 @@ function regoleGruppo(medie, s, out) {
     if (liv) out.push({ ambito: d > 0 ? 'anteriore' : 'posteriore', area: 'bilanciamento', intensita: liv,
       titolo: d > 0 ? 'Anteriore sovraccarico' : 'Posteriore sovraccarico',
       testo: d > 0
-        ? `Anteriore più caldo di ${gradi(d)} °C: tendenza al sottosterzo. Ammorbidire l'anteriore o irrigidire il posteriore, oppure alzare leggermente le pressioni anteriori.`
+        ? `Anteriore più caldo di ${gradi(d)} °C: tendenza al sottosterzo. Ammorbidire l'anteriore o irrigidire il posteriore.`
         : `Posteriore più caldo di ${gradi(-d)} °C: tendenza al sovrasterzo. Ammorbidire il posteriore o irrigidire l'anteriore.` });
   }
   if (sx !== null && dx !== null) {
@@ -107,7 +117,8 @@ function regoleGruppo(medie, s, out) {
     if (liv) out.push({ ambito: d > 0 ? 'sinistra' : 'destra', area: 'asimmetria', intensita: liv,
       titolo: d > 0 ? 'Lato sinistro sovraccarico' : 'Lato destro sovraccarico',
       testo: `Il lato ${d > 0 ? 'sinistro' : 'destro'} lavora di più: ${gradi(Math.abs(d))} °C in più dell'altro lato. ` +
-             `Controllare la simmetria di assetto e pressioni e la ripartizione dei pesi.` });
+             `È tipico di percorsi con curve prevalenti in un verso; se il percorso era equilibrato, ` +
+             `controllare la simmetria di assetto e pressioni e la ripartizione dei pesi.` });
   }
 }
 
@@ -115,19 +126,35 @@ function regoleGruppo(medie, s, out) {
 
 const SOGLIE_MESCOLA = { leggera: 0, media: 8, forte: 15 };
 
-function regoleMescola(sessione, mediaAuto, m, s, degradi, out) {
+/**
+ * La mescola dello stesso fondo la cui finestra contiene già la media misurata,
+ * così il suggerimento può fare un nome invece di dire solo "più morbida".
+ * A parità vince quella con il centro finestra più vicino alla media.
+ */
+function mescolaCheContiene(mediaAuto, m, mescole) {
+  const centro = (x) => (x.min + x.max) / 2;
+  return (Array.isArray(mescole) ? mescole : [])
+    .filter((x) => x && x.id !== m.id && x.fondo === m.fondo && num(x.min) && num(x.max) &&
+                   mediaAuto >= x.min && mediaAuto <= x.max && typeof x.nome === 'string' && x.nome !== '')
+    .sort((a, b) => Math.abs(centro(a) - mediaAuto) - Math.abs(centro(b) - mediaAuto))[0] ?? null;
+}
+
+function regoleMescola(sessione, mediaAuto, m, s, degradi, out, mescole) {
   let sug = null;
+  const dentro = mescolaCheContiene(mediaAuto, m, mescole);
+  const nominata = (generico) =>
+    (dentro ? `A ${gradi(mediaAuto)} °C rientri nella finestra di ${dentro.nome}.` : generico);
   if (mediaAuto < m.min) {
     sug = { ambito: 'auto', area: 'mescola', intensita: livello(m.min - mediaAuto, SOGLIE_MESCOLA),
       titolo: 'Mescola troppo dura',
       testo: `Media gomme ${gradi(mediaAuto)} °C, sotto la finestra ${m.min}-${m.max} °C di ${m.nome}. ` +
-             `Provare una mescola più morbida per far salire le temperature.` };
+             nominata('Provare una mescola più morbida per far salire le temperature.') };
     if (degradi.has('graining')) sug.intensita = alza(sug.intensita);
   } else if (mediaAuto > m.max) {
     sug = { ambito: 'auto', area: 'mescola', intensita: livello(mediaAuto - m.max, SOGLIE_MESCOLA),
       titolo: 'Mescola troppo morbida',
       testo: `Media gomme ${gradi(mediaAuto)} °C, sopra la finestra ${m.min}-${m.max} °C di ${m.nome}. ` +
-             `Provare una mescola più dura per contenere le temperature.` };
+             nominata('Provare una mescola più dura per contenere le temperature.') };
     if (degradi.has('blistering')) sug.intensita = alza(sug.intensita);
   }
   if (sug) out.push(sug);
@@ -168,7 +195,7 @@ export function diagnosi(sessione, soglie = SOGLIE_DEFAULT, mescole = MESCOLE_DE
     avvisi.push('Mescola non trovata: controlla le impostazioni. Regole su mescola e asfalto saltate.');
   } else if (complete.length) {
     const mediaAuto = complete.reduce((a, b) => a + b, 0) / complete.length;
-    regoleMescola(sessione, mediaAuto, m, s, degradi, suggerimenti);
+    regoleMescola(sessione, mediaAuto, m, s, degradi, suggerimenti, mescole);
   }
   if (!num(sessione.tempAsfalto)) avvisi.push('Temperatura asfalto mancante: regole su asfalto saltate.');
   return { suggerimenti, avvisi };
