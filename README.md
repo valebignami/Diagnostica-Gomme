@@ -3,12 +3,21 @@
 App per il parco assistenza: al furgone rilevi le temperature delle quattro
 gomme con il termometro, segni le pressioni e come si è consumata la
 superficie, e l'app ti dice cosa cambiare nell'assetto. I suggerimenti sono in
-italiano e ragionano come si ragiona al banco: spalla interna più calda del
-centro vuol dire troppo camber negativo, centro più caldo delle spalle vuol
-dire pressione alta, un anteriore molto più caldo del posteriore vuol dire
-sottosterzo. Per ogni prova ottieni una diagnosi divisa per mescola, assali,
-lati e singola ruota, con l'intensità del problema (leggera, media, forte) e
-l'azione proposta.
+italiano e ragionano come si ragiona al banco: la spalla interna più calda
+dell'**esterna** oltre la differenza attesa vuol dire troppo camber negativo,
+il centro più caldo delle spalle vuol dire pressione alta, un anteriore molto
+più caldo del posteriore vuol dire sottosterzo. Per ogni prova ottieni una
+diagnosi divisa per mescola, assali, lati e singola ruota, con l'intensità del
+problema (leggera, media, forte) e l'azione proposta.
+
+Sul camber il riferimento non è lo zero: con il camber statico giusto la
+spalla interna finisce la prova più calda dell'esterna, di partenza di 8 °C su
+asfalto e 4 °C su terra. Il motore segnala lo scarto da quel valore, non la
+differenza in sé; la differenza attesa si cambia in *Impostazioni → Camber*.
+
+Sulle pressioni la convenzione è una sola, in tutta l'app: **pressione di
+partenza più bassa = la gomma scalda di più** (la carcassa flette di più),
+pressione più alta = la gomma lavora e scalda di meno.
 
 I dati restano solo sul telefono, dentro il browser: nessun account, nessuna
 registrazione, nessun invio in rete. Funziona anche senza campo, che è la
@@ -72,8 +81,13 @@ const VERSIONE = 'gomme-2026-09-09';
 ```
 
 Metti la data del giorno (per esempio `gomme-2026-10-14`) e ripubblica: al
-primo avvio con un po' di rete i telefoni scaricano i file nuovi. È l'unica
-cosa da ricordarsi a ogni pubblicazione.
+primo avvio con un po' di rete i telefoni scaricano i file nuovi.
+
+La stessa stringa va scritta anche in `app/js/views/impostazioni.js`, nella
+costante `VERSIONE_CACHE` in cima al file: è quella che la schermata
+*Impostazioni → Informazioni* mostra come "copia offline", così dal telefono
+si vede quale versione sta girando. Le due righe si cambiano insieme: sono
+l'unica cosa da ricordarsi a ogni pubblicazione.
 
 ## Le soglie: da validare con il collaudatore
 
@@ -83,9 +97,12 @@ prima di darli in mano ai piloti.
 
 Si cambiano in due punti:
 
-- **Dall'app**, schermata *Impostazioni*: soglie di camber, pressione, salita
-  di temperatura, bilanciamento e asimmetria (separate per asfalto e terra),
+- **Dall'app**, schermata *Impostazioni*: soglie di camber (compresa la
+  differenza attesa fra spalla interna ed esterna), pressione, salita di
+  temperatura, bilanciamento e asimmetria (separate per asfalto e terra),
   più la lista delle mescole con il loro intervallo di temperatura di lavoro.
+  Le finestre delle mescole crescono con la durezza: la morbida lavora più
+  fredda e va sopra temperatura prima, la dura ha bisogno di più calore.
   Le modifiche valgono solo su quel telefono. Il tasto *Ripristina soglie e
   mescole* riporta tutto ai valori di fabbrica senza toccare le sessioni.
 - **Nel codice**, file `app/js/config.js`: sono i valori di fabbrica, quelli
@@ -99,7 +116,9 @@ telefono o disinstalli l'app, spariscono. Il backup è manuale:
 
 - *Impostazioni → Esporta backup* scarica un file `.json` con tutte le
   sessioni, le soglie e le mescole. Salvalo dove vuoi (email a te stesso, drive,
-  chiavetta).
+  chiavetta). Su iPhone, se il telefono lo permette, apre direttamente il menu
+  di condivisione; se il download non riesce, l'app mostra il backup come testo
+  con un tasto *Copia negli appunti*, così i dati si portano via lo stesso.
 - *Impostazioni → Importa backup* ricarica quel file, anche su un altro
   telefono. L'importazione **sostituisce** i dati presenti, non li aggiunge.
 
