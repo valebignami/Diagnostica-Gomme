@@ -18,6 +18,30 @@ export function fmtData(iso) {
 
 const testo = (v) => (typeof v === 'string' && v.trim() !== '' ? v.trim() : TRATTINO);
 
+/* --- Etichette di fondo e condizioni --------------------------------------- */
+
+/**
+ * Stanno qui, e non in `ui.js`, perché servono anche al testo da condividere:
+ * le stringhe che il pilota legge sullo schermo e quelle che finiscono su
+ * WhatsApp devono essere le stesse. `ui.js` le riesporta per le viste.
+ */
+export const FONDI = [
+  { valore: 'asfalto', etichetta: 'Asfalto' },
+  { valore: 'terra', etichetta: 'Terra' },
+];
+
+export const CONDIZIONI = [
+  { valore: 'asciutto', etichetta: 'Asciutto' },
+  { valore: 'umido', etichetta: 'Umido' },
+  { valore: 'bagnato', etichetta: 'Bagnato' },
+];
+
+const etichettaDa = (elenco, valore) =>
+  elenco.find((v) => v.valore === valore)?.etichetta ?? (valore ? String(valore) : TRATTINO);
+
+export const etichettaFondo = (v) => etichettaDa(FONDI, v);
+export const etichettaCondizioni = (v) => etichettaDa(CONDIZIONI, v);
+
 const nomeMescola = (id, mescole) => mescole.find((m) => m.id === id)?.nome ?? testo(id);
 
 const etichettaDegrado = (codice) => DEGRADO.find((d) => d.codice === codice)?.etichetta ?? testo(codice);
@@ -42,7 +66,7 @@ export function diagnosiInTesto(sessione = {}, risultato = {}, mescole = MESCOLE
   r.push(`Data: ${fmtData(sessione.data)}`);
   r.push(`Evento: ${testo(sessione.evento)}`);
   r.push(`Prova: ${testo(sessione.prova)}`);
-  r.push(`Fondo: ${testo(sessione.fondo)} · ${testo(sessione.condizioni)}`);
+  r.push(`Fondo: ${etichettaFondo(sessione.fondo)} · ${etichettaCondizioni(sessione.condizioni)}`);
   r.push(`Temperatura aria: ${fmtNum(sessione.tempAria)} °C · asfalto: ${fmtNum(sessione.tempAsfalto)} °C`);
   r.push(`Mescola: ${nomeMescola(sessione.mescola, mescole)}`);
   r.push(`Camber: ant ${fmtNum(sessione.camber?.ant, 1)}° · post ${fmtNum(sessione.camber?.post, 1)}°`);

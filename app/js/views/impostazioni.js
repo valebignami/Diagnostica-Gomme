@@ -21,6 +21,14 @@ import {
 
 const VERSIONE_APP = '1.0';
 
+/**
+ * Nome della cache del service worker. DEVE restare uguale al `VERSIONE` in
+ * cima ad `app/sw.js`: un service worker non può esportare niente al resto
+ * dell'app, quindi la stringa è scritta in due posti e si cambiano insieme a
+ * ogni pubblicazione. Serve a leggere dal telefono quale copia sta girando.
+ */
+const VERSIONE_CACHE = 'gomme-2026-09-09';
+
 /* --- Gruppi di soglie ----------------------------------------------------- */
 
 const TRIS = [['leggera', 'Leggera'], ['media', 'Media'], ['forte', 'Forte']];
@@ -33,7 +41,9 @@ const TRIS = [['leggera', 'Leggera'], ['media', 'Media'], ['forte', 'Forte']];
 const GRUPPI = [
   {
     chiave: 'camber', titolo: 'Camber', unita: '°C', dec: 0, tris: true,
-    spiegazione: 'Quanti gradi di differenza fra spalla interna ed esterna servono prima di suggerire una correzione di camber.',
+    spiegazione: 'Quanti gradi di scarto rispetto alla differenza attesa servono prima di suggerire una correzione di camber.',
+    extra: [['camberTarget', 'Differenza attesa']],
+    notaExtra: 'Differenza attesa: con il camber giusto la spalla interna finisce la prova più calda dell’esterna di tanti gradi. Le soglie qui sopra misurano lo scarto da questo valore. Zero significa spalle alla stessa temperatura.',
   },
   {
     chiave: 'pressione', titolo: 'Pressione', unita: '°C', dec: 0, tris: true,
@@ -63,10 +73,6 @@ const GRUPPI = [
   },
 ];
 
-/** Percorsi ed etichette dei campi di un gruppo. */
-const campiDi = (g) =>
-  (g.tris ? TRIS.map(([k, et]) => [`${g.chiave}.${k}`, et]) : g.campi);
-
 const NOTA_ORDINE = 'Le soglie dovrebbero crescere: leggera ≤ media ≤ forte';
 
 /**
@@ -83,6 +89,17 @@ function notaOrdine(soglieFondo, g) {
   const v = TRIS.map(([k]) => leggiPercorso(soglieFondo, `${g.chiave}.${k}`));
   if (!v.every((x) => typeof x === 'number' && Number.isFinite(x))) return '';
   return v[0] <= v[1] && v[1] <= v[2] ? '' : NOTA_ORDINE;
+}
+
+/**
+ * Dice se la copia offline sta davvero servendo la pagina. Non prova a
+ * leggere la versione dal service worker (non è possibile): dice solo se ce
+ * n'è uno attivo, così si capisce se il numero qui sopra è quello in uso o
+ * solo quello dei file appena scaricati.
+ */
+function statoServiceWorker() {
+  if (!('serviceWorker' in navigator)) return ' · non attiva su questo browser';
+  return navigator.serviceWorker.controller ? ' · attiva' : ' · non ancora attiva, ricarica la pagina';
 }
 
 /* --- Frammenti di markup -------------------------------------------------- */
@@ -106,14 +123,17 @@ function campoSoglia(fondo, soglieFondo, g, [percorso, etichetta]) {
 }
 
 function cardGruppo(fondo, soglieFondo, g) {
-  const campi = campiDi(g).map((c) => campoSoglia(fondo, soglieFondo, g, c)).join('');
+  const riga = (campi) => `<div class="soglie-riga">${campi.map((c) => campoSoglia(fondo, soglieFondo, g, c)).join('')}</div>`;
+  const principali = g.tris ? TRIS.map(([k, et]) => [`${g.chiave}.${k}`, et]) : g.campi;
   const nota = notaOrdine(soglieFondo, g);
   return `
     <section class="card">
       <h2 class="card-title">${escapeHtml(g.titolo)}</h2>
       <p class="card-sub">${escapeHtml(g.spiegazione)}</p>
-      <div class="soglie-riga">${campi}</div>
+      ${riga(principali)}
       ${g.tris ? `<p class="field-hint nota-ordine" id="nota-${g.chiave}">${escapeHtml(nota)}</p>` : ''}
+      ${g.extra ? riga(g.extra) : ''}
+      ${g.notaExtra ? `<p class="field-hint">${escapeHtml(g.notaExtra)}</p>` : ''}
     </section>`;
 }
 
@@ -125,7 +145,7 @@ function rigaMescola(m) {
         <div class="field">
           <label for="${escapeHtml(base)}-nome">Nome</label>
           <input id="${escapeHtml(base)}-nome" type="text" autocomplete="off"
-                 data-mescola="${escapeHtml(m.id)}" data-campo="nome"
+                 data-mescola="${escapeHtml(m.id)}" data-mescola-campo="nome"
                  value="${escapeHtml(m.nome ?? '')}">
         </div>
         <button type="button" class="icon-btn" data-azione="elimina-mescola" data-id="${escapeHtml(m.id)}"
@@ -134,20 +154,20 @@ function rigaMescola(m) {
       <div class="mescola-campi">
         <div class="field">
           <label for="${escapeHtml(base)}-fondo">Fondo</label>
-          <select id="${escapeHtml(base)}-fondo" data-mescola="${escapeHtml(m.id)}" data-campo="fondo">
+          <select id="${escapeHtml(base)}-fondo" data-mescola="${escapeHtml(m.id)}" data-mescola-campo="fondo">
             ${FONDI.map((f) => `<option value="${f.valore}"${f.valore === m.fondo ? ' selected' : ''}>${escapeHtml(f.etichetta)}</option>`).join('')}
           </select>
         </div>
         <div class="field">
           <label for="${escapeHtml(base)}-min">Min (°C)</label>
           <input id="${escapeHtml(base)}-min" type="text" inputmode="decimal" autocomplete="off"
-                 data-mescola="${escapeHtml(m.id)}" data-campo="min" data-dec="0"
+                 data-mescola="${escapeHtml(m.id)}" data-mescola-campo="min" data-dec="0"
                  value="${escapeHtml(mostraValore(m.min))}">
         </div>
         <div class="field">
           <label for="${escapeHtml(base)}-max">Max (°C)</label>
           <input id="${escapeHtml(base)}-max" type="text" inputmode="decimal" autocomplete="off"
-                 data-mescola="${escapeHtml(m.id)}" data-campo="max" data-dec="0"
+                 data-mescola="${escapeHtml(m.id)}" data-mescola-campo="max" data-dec="0"
                  value="${escapeHtml(mostraValore(m.max))}">
         </div>
       </div>
@@ -247,12 +267,16 @@ export function render(ctx) {
       <p class="card-sub">Il backup contiene sessioni, soglie e mescole in un unico file JSON.</p>
       <button type="button" class="btn btn-ghost btn-block" data-azione="esporta">Esporta backup</button>
       <button type="button" class="btn btn-ghost btn-block" data-azione="importa">Importa backup</button>
+      <p class="field-hint">L'importazione sostituisce tutti i dati: esporta prima quelli attuali.</p>
       <button type="button" class="btn btn-danger btn-block" data-azione="ripristina">Ripristina soglie e mescole</button>
     </section>
+
+    <div id="esporta-ripiego"></div>
 
     <section class="card">
       <h2 class="card-title">Informazioni</h2>
       <p class="card-sub">Diagnostica Gomme · versione ${escapeHtml(VERSIONE_APP)}</p>
+      <p class="field-hint">Copia offline: ${escapeHtml(VERSIONE_CACHE)}${statoServiceWorker()}</p>
       <p class="field-hint">Le soglie iniziali sono indicative: adattale con il collaudatore.</p>
       <p class="field-hint">I dati restano solo su questo dispositivo, dentro il browser: nessun account e nessun invio in rete. Per portarli altrove usa "Esporta backup".</p>
     </section>`;
@@ -313,7 +337,7 @@ export function render(ctx) {
     if (!campo) return;
     const m = mescolaDiId(campo.dataset.mescola);
     if (!m) return;
-    const nome = campo.dataset.campo;
+    const nome = campo.dataset.mescolaCampo;
 
     if (nome === 'nome') {
       m.nome = String(campo.value);
@@ -375,10 +399,10 @@ export function render(ctx) {
     }
 
     const campo = ev.target?.closest?.('[data-mescola]');
-    if (!campo || (campo.dataset.campo !== 'min' && campo.dataset.campo !== 'max')) return;
+    if (!campo || (campo.dataset.mescolaCampo !== 'min' && campo.dataset.mescolaCampo !== 'max')) return;
     const m = mescolaDiId(campo.dataset.mescola);
     if (!m) return;
-    const nome = campo.dataset.campo;
+    const nome = campo.dataset.mescolaCampo;
     const numero = parseNumero(campo.value);
     if (numero === null) {
       toast('Valore non valido');
@@ -403,7 +427,8 @@ export function render(ctx) {
 
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
-  fileInput.accept = 'application/json,.json';
+  // Niente `accept`: nel selettore File di iOS spegne file .json validi.
+  // `store.importa` controlla comunque il contenuto.
   fileInput.hidden = true;
   document.body.append(fileInput);
 
@@ -448,12 +473,15 @@ export function render(ctx) {
   };
 
   azioni['aggiungi-mescola'] = () => {
+    // Sempre asfalto, non il fondo scelto qui sopra per le soglie: sono due
+    // scelte diverse e la seconda non deve decidere al posto della prima. Il
+    // fondo si cambia subito dal menu della riga appena creata.
     mescole.push({
       id: nuovoId(),
       nome: 'Nuova mescola',
-      fondo: fondoAttivo,
-      min: 60,
-      max: 90,
+      fondo: 'asfalto',
+      min: 70,
+      max: 95,
     });
     daSalvare.mescole = true;
     salvaOra(false);
@@ -481,30 +509,80 @@ export function render(ctx) {
     toast('Mescola eliminata');
   };
 
-  azioni.esporta = () => {
+  /**
+   * Ultima spiaggia: il JSON in chiaro dentro un riquadro selezionabile, con
+   * un tasto per copiarlo. Se il telefono non scarica e non condivide, i dati
+   * si portano via lo stesso — incollandoli in una mail o in una nota.
+   */
+  function mostraRipiegoEsporta(testoJson) {
+    const contenitore = document.getElementById('esporta-ripiego');
+    if (!contenitore) return;
+    contenitore.innerHTML = `
+      <section class="card">
+        <h2 class="card-title">Backup da copiare</h2>
+        <p class="card-sub">Il download non è riuscito. Copia questo testo e incollalo in una mail o in una nota: è il backup completo.</p>
+        <textarea id="esporta-testo" class="esporta-testo" readonly rows="8" spellcheck="false"
+                  aria-label="Backup in formato JSON">${escapeHtml(testoJson)}</textarea>
+        <button type="button" class="btn btn-ghost btn-block" data-azione="copia-backup">Copia negli appunti</button>
+      </section>`;
+    contenitore.querySelector('#esporta-testo')?.focus();
+  }
+
+  azioni['copia-backup'] = async () => {
+    const area = document.getElementById('esporta-testo');
+    if (!area) return;
+    area.select();
+    try {
+      await navigator.clipboard.writeText(area.value);
+      avvisa('Backup copiato');
+    } catch {
+      avvisa('Copia non riuscita: seleziona il testo e copialo a mano');
+    }
+  };
+
+  azioni.esporta = async () => {
     salvaOra(false);
+    const testoJson = store.esporta();
+    const nome = `diagnostica-gomme-${oggi()}.json`;
+
+    // 1. Condivisione di sistema: su iPhone è l'unico modo per far finire il
+    //    file dove il proprietario vuole (Note, File, WhatsApp, mail).
+    try {
+      const file = new File([testoJson], nome, { type: 'application/json' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Backup Diagnostica Gomme' });
+        avvisa('Backup condiviso');
+        return;
+      }
+    } catch (errore) {
+      // Condivisione annullata dall'utente: non è un errore, non si insiste.
+      if (errore?.name === 'AbortError') return;
+    }
+
+    // 2. Download classico.
     let url;
     try {
-      url = URL.createObjectURL(new Blob([store.esporta()], { type: 'application/json' }));
+      url = URL.createObjectURL(new Blob([testoJson], { type: 'application/json' }));
+      urlTemporanei.add(url);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = nome;
+      document.body.append(a);
+      a.click();
+      a.remove();
+      // Revoca ritardata: alcuni browser leggono il Blob dopo il click.
+      const t = setTimeout(() => {
+        timers.delete(t);
+        urlTemporanei.delete(url);
+        URL.revokeObjectURL(url);
+      }, 60000);
+      timers.add(t);
+      toast('Backup esportato');
     } catch {
-      toast('Esportazione non riuscita');
-      return;
+      // 3. Niente download: il testo resta a schermo, da copiare.
+      mostraRipiegoEsporta(testoJson);
+      avvisa('Download non riuscito: copia il backup qui sotto');
     }
-    urlTemporanei.add(url);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `diagnostica-gomme-${oggi()}.json`;
-    document.body.append(a);
-    a.click();
-    a.remove();
-    // Revoca ritardata: alcuni browser leggono il Blob dopo il click.
-    const t = setTimeout(() => {
-      timers.delete(t);
-      urlTemporanei.delete(url);
-      URL.revokeObjectURL(url);
-    }, 60000);
-    timers.add(t);
-    toast('Backup esportato');
   };
 
   azioni.importa = () => {

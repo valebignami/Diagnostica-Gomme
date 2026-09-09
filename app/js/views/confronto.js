@@ -18,8 +18,11 @@ import {
   etichettaFondo, etichettaCondizioni, ICONA_VUOTO,
 } from '../ui.js';
 
-/** Oltre questa differenza (°C) il delta viene colorato. */
+/** Oltre questa differenza (°C) il delta di temperatura viene colorato. */
 const SOGLIA_DELTA = 3;
+
+/** Oltre questa differenza (bar) il delta di pressione viene colorato. */
+const SOGLIA_DELTA_BAR = 0.05;
 
 /** Scelta corrente, conservata fra un ingresso nella schermata e il successivo. */
 let scelta = { a: null, b: null };
@@ -42,14 +45,22 @@ const menu = (lato, sessioni, attiva) => `
     </select>
   </div>`;
 
-/** Differenza B − A: testo con il segno e classe del colore. */
-function delta(mediaA, mediaB) {
-  if (mediaA == null || mediaB == null) return { testo: TRATTINO, classe: 'delta-neutro' };
-  const d = mediaB - mediaA;
-  let testo = fmtNum(d, 0);
-  if (testo === '-0') testo = '0';
-  if (!testo.startsWith('-') && testo !== '0') testo = `+${testo}`;
-  const classe = d >= SOGLIA_DELTA ? 'delta-caldo' : d <= -SOGLIA_DELTA ? 'delta-freddo' : 'delta-neutro';
+/**
+ * Differenza B − A: testo con il segno e classe del colore. Vale sia per i
+ * gradi (interi, soglia 3 °C) sia per i bar (due decimali, soglia 0,05 bar):
+ * cambiano solo i decimali e la soglia oltre la quale si colora.
+ */
+function delta(a, b, { dec = 0, soglia = SOGLIA_DELTA } = {}) {
+  if (typeof a !== 'number' || !Number.isFinite(a) ||
+      typeof b !== 'number' || !Number.isFinite(b)) return { testo: TRATTINO, classe: 'delta-neutro' };
+  const d = b - a;
+  let testo = fmtNum(d, dec);
+  const zero = fmtNum(0, dec);
+  if (testo === `-${zero}`) testo = zero;
+  if (!testo.startsWith('-') && testo !== zero) testo = `+${testo}`;
+  // Margine minimo: 1,85 − 1,80 in virgola mobile fa 0,049999… e resterebbe grigio.
+  const limite = soglia - 1e-9;
+  const classe = d >= limite ? 'delta-caldo' : d <= -limite ? 'delta-freddo' : 'delta-neutro';
   return { testo, classe };
 }
 
@@ -60,6 +71,7 @@ function tabella(a, b) {
     const mediaA = mediaFine(ra);
     const mediaB = mediaFine(rb);
     const d = delta(mediaA, mediaB);
+    const dp = delta(ra.pressFredda, rb.pressFredda, { dec: 2, soglia: SOGLIA_DELTA_BAR });
     return `
       <tr>
         <th scope="row" title="${escapeHtml(ETICHETTE_RUOTE[codice] ?? codice)}">${escapeHtml(codice)}</th>
@@ -68,6 +80,7 @@ function tabella(a, b) {
         <td class="${d.classe}">${escapeHtml(d.testo)}</td>
         <td>${fmtNum(ra.pressFredda, 2)}</td>
         <td>${fmtNum(rb.pressFredda, 2)}</td>
+        <td class="${dp.classe}">${escapeHtml(dp.testo)}</td>
       </tr>`;
   }).join('');
 
@@ -83,6 +96,7 @@ function tabella(a, b) {
             <th scope="col">Δ B−A</th>
             <th scope="col">Fredda A<small>bar</small></th>
             <th scope="col">Fredda B<small>bar</small></th>
+            <th scope="col">Δ bar</th>
           </tr>
         </thead>
         <tbody>${righe}</tbody>
@@ -160,7 +174,7 @@ export function render(ctx) {
     return `
       <section class="card">
         <h2 class="card-title">Temperature e pressioni</h2>
-        <p class="card-sub">Medie di fine prova. Il delta è B meno A: rosso se B è più calda, blu se più fredda.</p>
+        <p class="card-sub">Medie di fine prova e pressioni a freddo. I delta sono B meno A: in rosso se B è più alta, in blu se più bassa. La tabella scorre di lato.</p>
         ${tabella(a, b)}
       </section>
       ${schedaDati(a, b, mescole)}
