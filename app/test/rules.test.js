@@ -26,7 +26,7 @@ test('interno molto piu caldo dell atteso: ridurre camber, intensita forte', () 
   assert.match(c[0].testo, /ridurre/i);
   // Il testo dice sia lo scarto misurato sia quello atteso.
   assert.match(c[0].testo, /25 °C/);
-  assert.match(c[0].testo, /8 °C attesi/);
+  assert.match(c[0].testo, /contro gli 8 °C attesi/);
 });
 
 test('esterno piu caldo dell interno: aumentare camber', () => {
