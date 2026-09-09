@@ -13,7 +13,7 @@
 
 import { SOGLIE_DEFAULT } from '../config.js';
 import { fmtNum } from '../format.js';
-import { oggi } from '../store.js';
+import { nuovoId, oggi } from '../store.js';
 import {
   escapeHtml, parseNumero, impostaPercorso, leggiPercorso,
   FONDI, ICONA_CESTINO,
@@ -68,6 +68,14 @@ const campiDi = (g) =>
   (g.tris ? TRIS.map(([k, et]) => [`${g.chiave}.${k}`, et]) : g.campi);
 
 const NOTA_ORDINE = 'Le soglie dovrebbero crescere: leggera ≤ media ≤ forte';
+
+/**
+ * Soglie che misurano uno scarto: zero o meno non vuol dire niente (farebbe
+ * scattare il suggerimento sempre). Le temperature dell'asfalto invece possono
+ * benissimo essere zero o sotto zero.
+ */
+const SOGLIE_POSITIVE = new Set(['camber', 'pressione', 'passoPressione', 'bilanciamento', 'asimmetria', 'salita']);
+const vuolePositivo = (percorso) => SOGLIE_POSITIVE.has(String(percorso).split('.')[0]);
 
 /** Nota da mostrare sotto un gruppo a tre livelli, vuota se l'ordine è giusto. */
 function notaOrdine(soglieFondo, g) {
@@ -294,6 +302,7 @@ export function render(ctx) {
     if (soglia) {
       const numero = parseNumero(soglia.value);
       if (numero === null) return; // valore incompleto: non si scrive niente
+      if (vuolePositivo(soglia.dataset.soglia) && numero <= 0) return;
       impostaPercorso(soglieDelFondo(), soglia.dataset.soglia, numero);
       aggiornaNota(soglia.dataset.soglia);
       pianifica('soglie');
@@ -326,8 +335,18 @@ export function render(ctx) {
     }
     const numero = parseNumero(campo.value);
     if (numero === null) return;
+    // Finestra rovesciata: non si scrive, così il valore di prima resta
+    // recuperabile all'uscita dal campo.
+    if (finestraRovesciata(m, nome, numero)) return;
     m[nome] = numero;
     pianifica('mescole');
+  }
+
+  /** Vera se scrivere `numero` in `nome` (min o max) rovescerebbe la finestra. */
+  function finestraRovesciata(m, nome, numero) {
+    const min = nome === 'min' ? numero : m.min;
+    const max = nome === 'max' ? numero : m.max;
+    return typeof min === 'number' && typeof max === 'number' && min >= max;
   }
 
   /**
@@ -341,7 +360,7 @@ export function render(ctx) {
       const dec = Number(soglia.dataset.dec) || 0;
       const percorso = soglia.dataset.soglia;
       const numero = parseNumero(soglia.value);
-      if (numero === null) {
+      if (numero === null || (vuolePositivo(percorso) && numero <= 0)) {
         toast('Valore non valido');
       } else {
         const arrotondato = Number(numero.toFixed(dec));
@@ -359,14 +378,17 @@ export function render(ctx) {
     if (!campo || (campo.dataset.campo !== 'min' && campo.dataset.campo !== 'max')) return;
     const m = mescolaDiId(campo.dataset.mescola);
     if (!m) return;
+    const nome = campo.dataset.campo;
     const numero = parseNumero(campo.value);
     if (numero === null) {
       toast('Valore non valido');
-    } else if (Math.round(numero) !== m[campo.dataset.campo]) {
-      m[campo.dataset.campo] = Math.round(numero);
+    } else if (finestraRovesciata(m, nome, Math.round(numero))) {
+      toast('Il minimo deve essere sotto il massimo');
+    } else if (Math.round(numero) !== m[nome]) {
+      m[nome] = Math.round(numero);
       pianifica('mescole');
     }
-    campo.value = mostraValore(m[campo.dataset.campo]);
+    campo.value = mostraValore(m[nome]);
   }
 
   document.addEventListener('input', suInput);
@@ -399,14 +421,16 @@ export function render(ctx) {
     fileInput.value = '';
     if (!vivo) return;
     if (!confirm('Sostituire tutti i dati con il backup?')) return;
+    let esito;
     try {
-      store.importa(testo);
+      esito = store.importa(testo);
     } catch (errore) {
       avvisa(errore.message);
       return;
     }
     ricarica();
-    avvisa('Backup importato');
+    const scartate = esito.scartate > 0 ? `, ${esito.scartate} scartate` : '';
+    avvisa(`Backup importato: ${esito.importate} session${esito.importate === 1 ? 'e' : 'i'}${scartate}`);
   });
 
   /* --- Azioni ------------------------------------------------------------- */
@@ -425,7 +449,7 @@ export function render(ctx) {
 
   azioni['aggiungi-mescola'] = () => {
     mescole.push({
-      id: crypto.randomUUID(),
+      id: nuovoId(),
       nome: 'Nuova mescola',
       fondo: fondoAttivo,
       min: 60,
@@ -444,7 +468,12 @@ export function render(ctx) {
       toast('Serve almeno una mescola per fondo');
       return;
     }
-    if (!confirm(`Eliminare la mescola "${m.nome}"?`)) return;
+    const usi = store.elencaSessioni().filter((s) => s.mescola === m.id).length;
+    const quante = usi === 1 ? '1 sessione la usa' : `${usi} sessioni la usano`;
+    const avvertenza = usi > 0
+      ? ` ${quante}: quelle sessioni resteranno senza finestra di lavoro.`
+      : '';
+    if (!confirm(`Eliminare la mescola "${m.nome}"?${avvertenza}`)) return;
     mescole = mescole.filter((x) => x.id !== m.id);
     daSalvare.mescole = true;
     salvaOra(false);

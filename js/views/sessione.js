@@ -9,6 +9,7 @@
 
 import { RUOTE, ETICHETTE_RUOTE, DEGRADO } from '../config.js';
 import { fmtNum } from '../format.js';
+import { sessioneIntatta } from '../store.js';
 import {
   escapeHtml, parseNumero, valoreCampo, impostaPercorso,
   mediaFine, mescolaDi, statoRuota,
@@ -38,7 +39,7 @@ const campoNum = (id, etichetta, percorso, valore, extra = '') => `
 const opzioniMescola = (mescole, fondo, scelta) =>
   mescole
     .filter((m) => m.fondo === fondo)
-    .map((m) => `<option value="${escapeHtml(m.id)}"${m.id === scelta ? ' selected' : ''}>${escapeHtml(m.nome)} · ${m.min}–${m.max} °C</option>`)
+    .map((m) => `<option value="${escapeHtml(m.id)}"${m.id === scelta ? ' selected' : ''}>${escapeHtml(m.nome)} · ${escapeHtml(m.min)}–${escapeHtml(m.max)} °C</option>`)
     .join('');
 
 /* --- Vista ---------------------------------------------------------------- */
@@ -69,9 +70,11 @@ export function render(ctx) {
     clearTimeout(timerSalva);
     timerSalva = null;
     if (!daSalvare || eliminata) return;
-    daSalvare = false;
     try {
       sessione = store.salvaSessione(sessione);
+      // Il segnale si spegne solo a scrittura riuscita: se fallisce, il
+      // prossimo salvataggio (o l'uscita dalla schermata) ci riprova.
+      daSalvare = false;
     } catch (errore) {
       toast(errore.message);
       return;
@@ -475,8 +478,26 @@ export function render(ctx) {
 
   /* --- Smontaggio --------------------------------------------------------- */
 
+  /**
+   * "Nuova" crea subito la sessione, così la schermata ha qualcosa su cui
+   * scrivere. Se però si esce senza aver scritto niente, quella riga vuota non
+   * deve restare in elenco. Unica eccezione: si sta andando alla sua diagnosi.
+   */
+  function scartaSeIntatta() {
+    if (eliminata) return;
+    if (location.hash === `#/diagnosi/${sessione.id}`) return;
+    if (!sessioneIntatta(sessione)) return;
+    try {
+      store.eliminaSessione(sessione.id);
+      eliminata = true;
+    } catch {
+      /* se non si riesce a cancellare, la sessione vuota resta: nessun danno */
+    }
+  }
+
   return () => {
     salvaOra(false);
+    scartaSeIntatta();
     clearTimeout(timerSalva);
     document.removeEventListener('input', suCampo);
     document.removeEventListener('change', suCampo);
