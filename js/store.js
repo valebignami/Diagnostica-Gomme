@@ -87,12 +87,17 @@ export function creaStore(storage = globalThis.localStorage ?? memoriaVolatile()
     return normalizza(dati) ?? statoDefault();
   }
 
-  function salva() {
+  /**
+   * Persiste `prossimo` e lo adotta come stato corrente solo se la scrittura riesce:
+   * se `setItem` lancia, lo stato in memoria resta quello dell'ultimo salvataggio valido.
+   */
+  function commit(prossimo) {
     try {
-      storage.setItem(CHIAVE, JSON.stringify(stato));
+      storage.setItem(CHIAVE, JSON.stringify(prossimo));
     } catch (errore) {
       throw new Error('Impossibile salvare i dati: memoria del browser piena o non disponibile.', { cause: errore });
     }
+    stato = prossimo;
   }
 
   function trova(id) {
@@ -113,18 +118,19 @@ export function creaStore(storage = globalThis.localStorage ?? memoriaVolatile()
     const esistente = trova(copia.id);
     copia.creataIl = esistente?.creataIl ?? copia.creataIl ?? new Date().toISOString();
     copia.modificataIl = new Date().toISOString();
-    const i = stato.sessioni.findIndex((s) => s.id === copia.id);
-    if (i >= 0) stato.sessioni[i] = copia;
-    else stato.sessioni.push(copia);
-    salva();
+    const sessioni = stato.sessioni.slice();
+    const i = sessioni.findIndex((s) => s.id === copia.id);
+    if (i >= 0) sessioni[i] = copia;
+    else sessioni.push(copia);
+    commit({ ...stato, sessioni });
     return structuredClone(copia);
   }
 
   function eliminaSessione(id) {
     const i = stato.sessioni.findIndex((s) => s.id === id);
     if (i < 0) return false;
-    stato.sessioni.splice(i, 1);
-    salva();
+    const sessioni = stato.sessioni.filter((_, k) => k !== i);
+    commit({ ...stato, sessioni });
     return true;
   }
 
@@ -150,8 +156,7 @@ export function creaStore(storage = globalThis.localStorage ?? memoriaVolatile()
   }
 
   function setSoglie(soglie) {
-    stato.soglie = structuredClone(soglie);
-    salva();
+    commit({ ...stato, soglie: structuredClone(soglie) });
     return getSoglie();
   }
 
@@ -160,16 +165,17 @@ export function creaStore(storage = globalThis.localStorage ?? memoriaVolatile()
   }
 
   function setMescole(mescole) {
-    stato.mescole = structuredClone(mescole);
-    salva();
+    commit({ ...stato, mescole: structuredClone(mescole) });
     return getMescole();
   }
 
   /** Riporta soglie e mescole ai valori di fabbrica, senza toccare le sessioni. */
   function ripristinaDefault() {
-    stato.soglie = structuredClone(SOGLIE_DEFAULT);
-    stato.mescole = structuredClone(MESCOLE_DEFAULT);
-    salva();
+    commit({
+      ...stato,
+      soglie: structuredClone(SOGLIE_DEFAULT),
+      mescole: structuredClone(MESCOLE_DEFAULT),
+    });
   }
 
   function esporta() {
@@ -186,8 +192,7 @@ export function creaStore(storage = globalThis.localStorage ?? memoriaVolatile()
     }
     const nuovo = normalizza(dati);
     if (!nuovo) throw new Error(`File non compatibile: serve un backup con versione ${VERSIONE} e l'elenco delle sessioni.`);
-    stato = nuovo;
-    salva();
+    commit(nuovo);
     return stato.sessioni.length;
   }
 

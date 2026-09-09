@@ -157,3 +157,66 @@ test('esporta produce un json rileggibile con versione 1', () => {
   assert.equal(dati.sessioni.length, 1);
   assert.ok(dati.soglie && dati.mescole);
 });
+
+// --- coerenza dello stato quando il salvataggio fallisce ---------------------
+
+/** Storage in memoria che, dopo `rompi()`, fa fallire ogni scrittura. */
+const memoriaFragile = () => {
+  const m = new Map();
+  let guasta = false;
+  return {
+    getItem: (k) => (m.has(k) ? m.get(k) : null),
+    setItem: (k, v) => { if (guasta) throw new Error('QuotaExceededError'); m.set(k, v); },
+    rompi: () => { guasta = true; },
+  };
+};
+
+test('scrittura fallita: ogni mutatore lancia in italiano e lascia lo stato invariato', () => {
+  const m = memoriaFragile();
+  const st = creaStore(m);
+  const s = st.salvaSessione(nuovaSessione({ evento: 'Preesistente' }));
+  const elencoPrima = st.elencaSessioni();
+  const soglePrima = st.getSoglie();
+  const mescolePrima = st.getMescole();
+  const jsonPrima = m.getItem(CHIAVE);
+
+  m.rompi();
+
+  const soglieModificate = st.getSoglie();
+  soglieModificate.asfalto.camber.leggera = 99;
+
+  assert.throws(() => st.salvaSessione(nuovaSessione({ evento: 'Nuova' })), /impossibile salvare/i);
+  assert.throws(() => st.salvaSessione({ ...s, evento: 'Modificata' }), /impossibile salvare/i);
+  assert.throws(() => st.eliminaSessione(s.id), /impossibile salvare/i);
+  assert.throws(() => st.duplicaSessione(s.id), /impossibile salvare/i);
+  assert.throws(() => st.setSoglie(soglieModificate), /impossibile salvare/i);
+  assert.throws(() => st.setMescole([{ id: 'x', nome: 'X', fondo: 'terra', min: 1, max: 2 }]), /impossibile salvare/i);
+  assert.throws(() => st.ripristinaDefault(), /impossibile salvare/i);
+
+  assert.deepEqual(st.elencaSessioni(), elencoPrima);
+  assert.deepEqual(st.getSessione(s.id), s);
+  assert.deepEqual(st.getSoglie(), soglePrima);
+  assert.deepEqual(st.getMescole(), mescolePrima);
+  assert.equal(m.getItem(CHIAVE), jsonPrima);
+});
+
+test('importazione fallita in scrittura: lo store conserva i dati precedenti', () => {
+  const backup = creaStore(memoria());
+  backup.salvaSessione(nuovaSessione({ evento: 'Backup A' }));
+  backup.salvaSessione(nuovaSessione({ evento: 'Backup B' }));
+  const json = backup.esporta();
+
+  const m = memoriaFragile();
+  const st = creaStore(m);
+  st.salvaSessione(nuovaSessione({ evento: 'Preesistente' }));
+  const elencoPrima = st.elencaSessioni();
+  const jsonPrima = m.getItem(CHIAVE);
+
+  m.rompi();
+  assert.throws(() => st.importa(json), /impossibile salvare/i);
+
+  assert.equal(st.elencaSessioni().length, 1);
+  assert.equal(st.elencaSessioni()[0].evento, 'Preesistente');
+  assert.deepEqual(st.elencaSessioni(), elencoPrima);
+  assert.equal(m.getItem(CHIAVE), jsonPrima);
+});
