@@ -35,12 +35,22 @@ del telefonino in alto a sinistra del pannello che si apre.
 ## Installarla sul telefono
 
 Il telefono ha bisogno che l'app stia su un indirizzo internet in `https`, non
-basta il PC. Va bene un hosting statico gratuito:
+basta il PC. Va bene un hosting statico gratuito.
 
-- **Netlify Drop** (il più veloce): vai su `app.netlify.com/drop` e trascina la
-  cartella `app` nella pagina. In pochi secondi ti dà un indirizzo.
-- **GitHub Pages**: carica il progetto su GitHub, poi in *Settings → Pages*
-  scegli il ramo e la cartella `app`.
+**Netlify Drop, il modo più semplice.** Vai su `app.netlify.com/drop` e trascina
+dentro la pagina la cartella `app`. In pochi secondi ti dà un indirizzo
+`https`, senza registrarti e senza altri passaggi. È la strada consigliata.
+
+**GitHub Pages**, se preferisci tenere tutto su GitHub. Attenzione: Pages non
+sa pubblicare una sottocartella qualsiasi, può servire solo la radice del
+repository oppure una cartella che si chiama esattamente `docs`. Quindi scegli
+una delle due:
+
+- copia il **contenuto** di `app` (non la cartella: i file che ci sono dentro)
+  nella radice del repository, e in *Settings → Pages* scegli il ramo e
+  `/ (root)`;
+- oppure copia lo stesso contenuto in una cartella `docs`, e in
+  *Settings → Pages* scegli il ramo e `/docs`.
 
 Poi, dal telefono, apri quell'indirizzo e:
 
@@ -49,6 +59,21 @@ Poi, dal telefono, apri quell'indirizzo e:
 
 Da lì in poi si apre come una qualsiasi app, a schermo intero e anche senza
 rete.
+
+## Quando pubblichi una modifica
+
+L'app tiene una copia di sé stessa sul telefono per funzionare senza rete.
+Finché quella copia ha lo stesso nome, il telefono continua a usarla e le
+modifiche non si vedono. Perciò, **ogni volta che pubblichi**, apri il file
+`app/sw.js` e cambia la data nella riga in cima:
+
+```
+const VERSIONE = 'gomme-2026-09-09';
+```
+
+Metti la data del giorno (per esempio `gomme-2026-10-14`) e ripubblica: al
+primo avvio con un po' di rete i telefoni scaricano i file nuovi. È l'unica
+cosa da ricordarsi a ogni pubblicazione.
 
 ## Le soglie: da validare con il collaudatore
 
@@ -97,9 +122,14 @@ numeri. Devono essere tutti verdi prima di pubblicare una modifica.
 app/                 l'applicazione (è questa che si pubblica)
   index.html         la pagina, unica: le schermate si alternano dentro
   manifest.json      nome e icona per l'installazione sulla home
-  sw.js              fa funzionare l'app senza rete
+  sw.js              fa funzionare l'app senza rete  ← la data si cambia a ogni
+                     pubblicazione
   icon.svg           l'icona
+  icon-180.png       l'icona per la home di iPhone
+  icon-192.png       le icone per l'installazione su Android
+  icon-512.png
   css/style.css      l'aspetto
+  fonts/             i caratteri, ospitati qui dentro: nessuna richiesta in rete
   js/
     config.js        soglie di fabbrica e mescole  ← si toccano queste
     rules.js         il motore che genera i suggerimenti
