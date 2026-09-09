@@ -1,7 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { diagnosi, livello } from '../js/rules.js';
-import { SOGLIE_DEFAULT } from '../js/config.js';
 
 const ruota = (int, cen, est, extra = {}) => ({ fine: { int, cen, est }, degrado: 'regolare', ...extra });
 const base = (ruote, extra = {}) => ({ fondo: 'asfalto', tempAsfalto: 25, mescola: 'asf-medium', ruote, ...extra });
@@ -30,12 +29,19 @@ test('esterno piu caldo dell interno: aumentare camber', () => {
   assert.equal(trova(res, 'AS', 'camber')[0].intensita, 'leggera');
 });
 
-test('centro piu caldo delle spalle: pressione alta, abbassare di 0.2', () => {
+test('centro piu caldo delle spalle: pressione alta, abbassare di 0,2 bar', () => {
   const res = diagnosi(base(tutte(ruota(80, 89, 80))));
   const p = trova(res, 'AD', 'pressione')[0];
   assert.equal(p.intensita, 'media');
   assert.match(p.testo, /abbassare/i);
-  assert.match(p.testo, /0[.,]2/);
+  assert.match(p.testo, /di circa 0,2 bar/);
+});
+
+test('su terra il passo medio di pressione e 0,15 bar, non arrotondato a 0,1', () => {
+  const res = diagnosi(base(tutte(ruota(80, 91, 80)), { fondo: 'terra', mescola: 'ter-medium' }));
+  const p = trova(res, 'AS', 'pressione')[0];
+  assert.equal(p.intensita, 'media');
+  assert.match(p.testo, /di circa 0,15 bar/);
 });
 
 test('spalle piu calde del centro: pressione bassa, alzare', () => {
@@ -109,4 +115,59 @@ test('ruota incompleta: avviso e regole di assale saltate', () => {
   const res = diagnosi(base({ AS: ok, AD: { fine: { int: 80 } }, PS: ok, PD: ok }));
   assert.equal(res.avvisi.length, 1);
   assert.equal(trova(res, 'anteriore', 'bilanciamento').length, 0);
+});
+
+test('spalla esterna consumata rafforza sia il camber sia la pressione', () => {
+  const r = ruota(84, 82, 92, { degrado: 'spallaEst' });
+  const res = diagnosi(base(tutte(r)));
+  const c = trova(res, 'AS', 'camber')[0];
+  assert.match(c.titolo, /insufficiente/i);
+  assert.equal(c.intensita, 'media');
+  const p = trova(res, 'AS', 'pressione')[0];
+  assert.match(p.titolo, /bassa/i);
+  assert.equal(p.intensita, 'media');
+});
+
+test('blistering rafforza la pressione alta della ruota e la mescola troppo morbida', () => {
+  const r = ruota(100, 110, 100, { degrado: 'blistering' });
+  const res = diagnosi(base(tutte(r)));
+  const p = trova(res, 'AD', 'pressione')[0];
+  assert.match(p.titolo, /alta/i);
+  assert.equal(p.intensita, 'forte');
+  const m = trova(res, 'auto', 'mescola').filter((x) => /morbida/i.test(x.titolo))[0];
+  assert.equal(m.intensita, 'forte');
+});
+
+test('gomma vetrificata: alzare le pressioni di partenza', () => {
+  const r = ruota(60, 61, 59, { degrado: 'vetrificata' });
+  const res = diagnosi(base(tutte(r)));
+  const d = trova(res, 'PD', 'degrado')[0];
+  assert.match(d.titolo, /vetrificata/i);
+  assert.match(d.testo, /pressioni di partenza/i);
+});
+
+test('asfalto caldo e gomma sopra range: avviso su pressioni piu alte', () => {
+  const res = diagnosi(base(tutte(ruota(100, 101, 99)), { tempAsfalto: 45 }));
+  const a = trova(res, 'auto', 'mescola').filter((x) => /asfalto caldo/i.test(x.titolo));
+  assert.equal(a.length, 1);
+  assert.match(a[0].testo, /pressioni più alte/i);
+});
+
+test('chunking pesa di piu su terra: forte invece di media', () => {
+  const r = ruota(70, 71, 69, { degrado: 'chunking' });
+  const terra = diagnosi(base(tutte(r), { fondo: 'terra', mescola: 'ter-medium' }));
+  assert.equal(trova(terra, 'AS', 'degrado')[0].intensita, 'forte');
+  const asfalto = diagnosi(base(tutte(r)));
+  assert.equal(trova(asfalto, 'AS', 'degrado')[0].intensita, 'media');
+});
+
+test('mescola sconosciuta: avviso e nessuna regola su mescola o asfalto', () => {
+  const res = diagnosi(base(tutte(ruota(100, 101, 99)), { mescola: 'non-esiste', tempAsfalto: 45 }));
+  assert.equal(res.avvisi.some((a) => /Mescola non trovata/i.test(a)), true);
+  assert.equal(trova(res, 'auto', 'mescola').length, 0);
+});
+
+test('temperatura asfalto mancante: avviso dedicato', () => {
+  const res = diagnosi(base(tutte(ruota(80, 82, 80)), { tempAsfalto: null }));
+  assert.equal(res.avvisi.some((a) => /Temperatura asfalto mancante/i.test(a)), true);
 });
