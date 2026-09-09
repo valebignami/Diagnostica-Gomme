@@ -24,17 +24,32 @@ test('interno molto piu caldo dell atteso: ridurre camber, intensita forte', () 
   assert.equal(c.length, 1);
   assert.equal(c[0].intensita, 'forte');
   assert.match(c[0].testo, /ridurre/i);
-  // Il testo dice sia lo scarto misurato sia quello atteso.
-  assert.match(c[0].testo, /25 °C/);
-  assert.match(c[0].testo, /contro gli 8 °C attesi/);
+  // Il testo dice sia lo scarto misurato sia quello atteso, senza ambiguita
+  // su quale spalla e quale numero si riferisce a cosa.
+  assert.match(c[0].testo, /spalla interna più calda di 25 °C/);
+  assert.match(c[0].testo, /una differenza di circa 8 °C/);
+  assert.match(c[0].testo, /ridurre il camber negativo/);
 });
 
-test('esterno piu caldo dell interno: aumentare camber', () => {
+test('esterno piu caldo dell interno: aumentare camber, testo inequivocabile', () => {
   const res = diagnosi(base(tutte(ruota(80, 86, 88))));
   const c = trova(res, 'AS', 'camber')[0];
   assert.match(c.titolo, /insufficiente/i);
-  assert.match(c.testo, /aumentare/i);
   assert.equal(c.intensita, 'forte');
+  // La spalla che scalda di piu (esterna) e quella che dovrebbe scaldare di
+  // piu (interna) devono comparire entrambe, senza ambiguita.
+  assert.match(c.testo, /spalla esterna più calda di 8 °C/);
+  assert.match(c.testo, /l'interna più calda di circa 8 °C/);
+  assert.match(c.testo, /aumentare il camber negativo/);
+});
+
+test('spalle pari: aumentare camber, testo dedicato al pareggio', () => {
+  const res = diagnosi(base(tutte(ruota(84, 82, 84))));
+  const c = trova(res, 'AS', 'camber')[0];
+  assert.match(c.titolo, /insufficiente/i);
+  assert.match(c.testo, /le due spalle sono alla stessa temperatura/);
+  assert.match(c.testo, /l'interna più calda di circa 8 °C/);
+  assert.match(c.testo, /aumentare il camber negativo/);
 });
 
 test('spalla interna piu calda esattamente quanto atteso: nessun suggerimento camber', () => {
