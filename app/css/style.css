@@ -310,7 +310,8 @@ hr.sep { border: 0; border-top: 1px solid var(--border); margin: 2px 0; }
 /* --- 7. Campi ------------------------------------------------------------ */
 .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 
-.field > label {
+.field > label,
+.field > .field-label {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: .1em;
@@ -402,19 +403,20 @@ hr.sep { border: 0; border-top: 1px solid var(--border); margin: 2px 0; }
 /* --- 8. Segmented, chip, badge ------------------------------------------ */
 .segmented {
   display: flex;
-  gap: 4px;
-  padding: 4px;
+  gap: 3px;
+  padding: 3px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 13px;
 }
+/* 48px: resta toccabile con i guanti, come tutti gli altri comandi. */
 .segmented button {
   flex: 1 1 0;
   min-width: 0;
-  min-height: 42px;
+  min-height: var(--tap);
   padding: 0 8px;
   border: 1px solid transparent;
-  border-radius: 9px;
+  border-radius: 10px;
   background: transparent;
   color: var(--muted);
   font-size: 14px;
@@ -466,6 +468,8 @@ hr.sep { border: 0; border-top: 1px solid var(--border); margin: 2px 0; }
 .badge-media   { color: var(--media);   background: rgba(255, 138, 61, .12); }
 .badge-forte   { color: var(--forte);   background: rgba(255, 59, 31, .12); }
 .badge-ok      { color: var(--ok);      background: rgba(61, 220, 132, .12); }
+.badge-fredda  { color: var(--cold);    background: rgba(77, 163, 255, .12); }
+.badge-neutro  { color: var(--muted);   background: rgba(139, 145, 156, .12); }
 
 /* --- 9. Auto vista dall'alto e ruote ------------------------------------ */
 .auto {
@@ -601,10 +605,10 @@ hr.sep { border: 0; border-top: 1px solid var(--border); margin: 2px 0; }
   z-index: 41;
   max-width: var(--maxw);
   margin: 0 auto;
-  max-height: 88dvh;
+  max-height: 92dvh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 8px var(--pad) calc(var(--pad) + env(safe-area-inset-bottom));
+  padding: 6px var(--pad) calc(12px + env(safe-area-inset-bottom));
   background: var(--surface);
   border: 1px solid var(--border);
   border-bottom: 0;
@@ -612,7 +616,7 @@ hr.sep { border: 0; border-top: 1px solid var(--border); margin: 2px 0; }
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
-  gap: var(--gap);
+  gap: 10px;
   transform: translateY(101%);
   visibility: hidden;
   transition: transform .2s ease-out, visibility .2s ease-out;
@@ -624,9 +628,16 @@ hr.sep { border: 0; border-top: 1px solid var(--border); margin: 2px 0; }
   height: 4px;
   border-radius: 2px;
   background: var(--border);
-  margin: 4px auto 6px;
+  margin: 2px auto 0;
   flex: 0 0 auto;
 }
+
+/* nel pannello lo spazio è prezioso: così su un telefono da 390x844 tutto,
+   "Chiudi" compreso, sta dentro senza scorrere. */
+.sheet .section-title { margin: 0 0 -4px; }
+.sheet .chips { gap: 6px; }
+.sheet .chip { padding: 0 13px; font-size: 13.5px; }
+.sheet .temps-grid { gap: 6px; }
 
 .sheet-title {
   font-family: var(--font-head);
@@ -639,6 +650,10 @@ hr.sep { border: 0; border-top: 1px solid var(--border); margin: 2px 0; }
   gap: 8px;
 }
 .sheet-title .badge { margin-left: auto; }
+
+/* passaggio rapido da una ruota all'altra senza chiudere il pannello */
+.sheet-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.sheet-nav .btn { padding: 0 8px; font-size: 13.5px; }
 
 /* --- 12. Stato vuoto e toast -------------------------------------------- */
 .empty {
@@ -699,7 +714,115 @@ hr.sep { border: 0; border-top: 1px solid var(--border); margin: 2px 0; }
 .diagnosi-titolo { font-weight: 600; font-size: 15px; flex: 1 1 auto; }
 .diagnosi-testo { font-size: 13.5px; color: var(--muted); }
 
-/* --- 14. Movimento ridotto ---------------------------------------------- */
+/* --- 14. Card dell'elenco sessioni -------------------------------------- */
+.card-sessione { position: relative; padding: 0; gap: 0; overflow: hidden; }
+
+/* tutta la card è un tasto: apre la sessione */
+.sessione-apri {
+  width: 100%;
+  padding: var(--pad) 56px var(--pad) var(--pad);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.sessione-apri:active { background: var(--surface-2); }
+
+.sessione-data {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: .01em;
+  font-variant-numeric: tabular-nums;
+}
+.sessione-titolo {
+  font-family: var(--font-head);
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1.1;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-top: -4px;
+}
+.sessione-sub { font-size: 13px; color: var(--muted); margin-top: -6px; }
+
+.chips-info { gap: 6px; }
+.chip-info {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+/* quattro medie di fine prova, come le ruote ma in miniatura */
+.mini-ruote { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; }
+.mini-ruota {
+  --t: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 6px 2px 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+}
+.mini-ruota b {
+  font-family: var(--font-head);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--muted);
+}
+.mini-ruota em {
+  font-family: var(--font-head);
+  font-style: normal;
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--t);
+}
+.mini-fredda { --t: var(--cold); border-color: rgba(77, 163, 255, .40); }
+.mini-ok     { --t: var(--ok);   border-color: rgba(61, 220, 132, .40); }
+.mini-calda  { --t: var(--forte); border-color: rgba(255, 59, 31, .45); }
+
+/* cestino in alto a destra nella card */
+.icon-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: var(--tap);
+  height: var(--tap);
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn:active { background: var(--accent-soft); color: #ff6a52; }
+
+.empty .btn { margin-top: 8px; }
+
+/* --- 15. Movimento ridotto ---------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .001ms !important;
