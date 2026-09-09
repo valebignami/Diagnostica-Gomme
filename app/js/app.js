@@ -128,7 +128,12 @@ function abbina(percorso, segmenti) {
 
 function evidenziaTab(tab) {
   for (const a of document.querySelectorAll('.tabbar a')) {
-    a.classList.toggle('active', a.dataset.tab === tab);
+    const attivo = a.dataset.tab === tab;
+    a.classList.toggle('active', attivo);
+    // `aria-current` dice al lettore di schermo qual è la schermata aperta:
+    // il colore da solo non lo racconta.
+    if (attivo) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
   }
 }
 
@@ -168,7 +173,12 @@ function disegna() {
     params = abbina(rotta.percorso, segmenti);
     if (params) { scelta = rotta; break; }
   }
-  if (!scelta) { scelta = ROTTA_DEFAULT; params = {}; }
+  // Rotta inesistente (link vecchio, hash scritto a mano): si torna all'elenco
+  // senza lasciare traccia nella cronologia.
+  if (!scelta) {
+    naviga(`#${ROTTA_DEFAULT.percorso}`, { sostituisci: true });
+    return;
+  }
 
   evidenziaTab(scelta.tab);
   if (elTopbar) elTopbar.textContent = scelta.etichetta ?? '';

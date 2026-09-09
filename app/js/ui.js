@@ -70,10 +70,14 @@ export function mescolaDi(sessione, mescole = []) {
   return mescole.find((m) => m.id === sessione?.mescola) ?? null;
 }
 
-/** `vuota` | `fredda` | `ok` | `calda` a partire dalla media e dal range mescola. */
+/**
+ * `vuota` | `fredda` | `ok` | `calda` a partire dalla media e dal range mescola.
+ * Senza mescola non c'è una finestra di lavoro: la gomma resta neutra, perché
+ * dipingerla di verde direbbe una cosa che non sappiamo.
+ */
 export function statoRuota(media, mescola) {
   if (media == null) return 'vuota';
-  if (!mescola || typeof mescola.min !== 'number' || typeof mescola.max !== 'number') return 'ok';
+  if (!mescola || typeof mescola.min !== 'number' || typeof mescola.max !== 'number') return 'vuota';
   if (media < mescola.min) return 'fredda';
   if (media > mescola.max) return 'calda';
   return 'ok';
