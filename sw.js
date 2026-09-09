@@ -1,6 +1,9 @@
 /* Service worker: cache-first per il guscio dell'app, così funziona offline. */
 /* CAMBIA QUESTA DATA A OGNI PUBBLICAZIONE: è l'unico modo perché i telefoni
-   già installati scarichino i file nuovi invece di riusare quelli in cache. */
+   già installati scarichino i file nuovi invece di riusare quelli in cache.
+   La stessa stringa è ripetuta in `js/views/impostazioni.js` (VERSIONE_CACHE),
+   che la mostra nella card Informazioni: un service worker non può esportare
+   niente al resto dell'app, quindi le due vanno cambiate insieme. */
 const VERSIONE = 'gomme-2026-09-09';
 const GUSCIO = [
   './',

@@ -957,6 +957,21 @@ div.tyre:active { transform: none; }
 .nota-ordine:empty { display: none; }
 .nota-ordine { color: var(--leggera); }
 
+/* Ripiego dell'esportazione: il JSON in chiaro, da selezionare e copiare. */
+.esporta-testo {
+  width: 100%;
+  margin-bottom: var(--gap);
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
 .mescole { display: flex; flex-direction: column; }
 .mescola { display: flex; flex-direction: column; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--border); }
 .mescola:first-child { padding-top: 0; }

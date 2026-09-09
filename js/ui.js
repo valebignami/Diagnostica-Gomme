@@ -89,22 +89,9 @@ export const ETICHETTA_STATO = { vuota: 'Senza dati', fredda: 'Fredda', ok: 'In 
 
 /* --- Etichette ----------------------------------------------------------- */
 
-export const FONDI = [
-  { valore: 'asfalto', etichetta: 'Asfalto' },
-  { valore: 'terra', etichetta: 'Terra' },
-];
-
-export const CONDIZIONI = [
-  { valore: 'asciutto', etichetta: 'Asciutto' },
-  { valore: 'umido', etichetta: 'Umido' },
-  { valore: 'bagnato', etichetta: 'Bagnato' },
-];
-
-const etichettaDa = (elenco, valore) =>
-  elenco.find((v) => v.valore === valore)?.etichetta ?? (valore ? String(valore) : TRATTINO);
-
-export const etichettaFondo = (v) => etichettaDa(FONDI, v);
-export const etichettaCondizioni = (v) => etichettaDa(CONDIZIONI, v);
+// Definite in `format.js`, dove servono anche al testo da condividere: qui
+// sono solo riesportate, così le viste continuano a importarle da un posto solo.
+export { FONDI, CONDIZIONI, etichettaFondo, etichettaCondizioni } from './format.js';
 
 /** Temperatura in gradi già formattata, con il trattino se manca il dato. */
 export const gradi = (v, dec = 0) => (v == null ? TRATTINO : fmtNum(v, dec));
