@@ -112,13 +112,26 @@ const ROTTE = [
 
 const ROTTA_DEFAULT = ROTTE[0];
 
+/**
+ * `decodeURIComponent` lancia su percentuali malformate (`%zz`): un hash
+ * scritto a mano o troncato non deve buttare giù il router, quindi in quel caso
+ * il segmento vale così com'è (nessun id reale lo eguaglierà).
+ */
+function decodifica(segmento) {
+  try {
+    return decodeURIComponent(segmento);
+  } catch {
+    return segmento;
+  }
+}
+
 /** Confronta il percorso della rotta con quello corrente ed estrae i parametri. */
 function abbina(percorso, segmenti) {
   const attesi = percorso.split('/').filter(Boolean);
   if (attesi.length !== segmenti.length) return null;
   const params = {};
   for (let i = 0; i < attesi.length; i++) {
-    if (attesi[i].startsWith(':')) params[attesi[i].slice(1)] = decodeURIComponent(segmenti[i]);
+    if (attesi[i].startsWith(':')) params[attesi[i].slice(1)] = decodifica(segmenti[i]);
     else if (attesi[i] !== segmenti[i]) return null;
   }
   return params;
@@ -172,8 +185,18 @@ function disegna() {
   if (elTopbar) elTopbar.textContent = scelta.etichetta ?? '';
 
   const ctx = { store, params, naviga, toast, render, azioni };
-  const risultato = scelta.vista.render(ctx);
-  if (typeof risultato === 'function') smonta = risultato;
+  try {
+    const risultato = scelta.vista.render(ctx);
+    if (typeof risultato === 'function') smonta = risultato;
+  } catch (errore) {
+    // La vista precedente è già smontata: senza rete di sicurezza la pagina
+    // resterebbe vuota fino a un ricaricamento.
+    console.error(errore);
+    toast('Errore nella pagina');
+    // Se a rompersi è proprio l'elenco non si rimbalza all'infinito.
+    if (scelta !== ROTTA_DEFAULT) naviga('#/sessioni', { sostituisci: true });
+    else render('');
+  }
 }
 
 window.addEventListener('hashchange', disegna);

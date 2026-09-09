@@ -56,6 +56,8 @@ export function render(ctx) {
 
   const mescole = store.getMescole();
   let ruotaAperta = null;
+  /** Elemento che aveva il fuoco prima di aprire il pannello. */
+  let fuocoPrec = null;
   let eliminata = false;
   let daSalvare = false;
   let timerSalva = null;
@@ -201,6 +203,9 @@ export function render(ctx) {
   sheet.setAttribute('role', 'dialog');
   sheet.setAttribute('aria-modal', 'true');
   sheet.setAttribute('aria-label', 'Dati della ruota');
+  // Il pannello stesso è messo a fuoco all'apertura: `aria-modal` senza fuoco
+  // dentro il pannello lascerebbe il lettore di schermo sullo sfondo.
+  sheet.setAttribute('tabindex', '-1');
   document.body.append(backdrop, sheet);
 
   const cellaTemp = (codice, fase, punto, etichetta) => {
@@ -269,12 +274,74 @@ export function render(ctx) {
       <button type="button" class="btn btn-primary btn-block" data-azione="chiudi-sheet">Chiudi</button>`;
   }
 
+  /* --- Fuoco -------------------------------------------------------------- */
+
+  const SELETTORE_FUOCO = 'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])';
+
+  /** Controlli del pannello raggiungibili con Tab, nell'ordine del documento. */
+  function focusabili() {
+    return Array.from(sheet.querySelectorAll(SELETTORE_FUOCO)).filter((el) => !el.disabled);
+  }
+
+  /** Tiene Tab e Shift+Tab dentro il pannello finché è aperto. */
+  function trappolaFuoco(ev) {
+    const elenco = focusabili();
+    if (!elenco.length) {
+      ev.preventDefault();
+      sheet.focus();
+      return;
+    }
+    const primo = elenco[0];
+    const ultimo = elenco[elenco.length - 1];
+    const attivo = document.activeElement;
+    const dentro = attivo && attivo !== sheet && sheet.contains(attivo);
+    if (ev.shiftKey) {
+      if (!dentro || attivo === primo) {
+        ev.preventDefault();
+        ultimo.focus();
+      }
+    } else if (!dentro || attivo === ultimo) {
+      ev.preventDefault();
+      primo.focus();
+    }
+  }
+
+  /**
+   * Riporta il fuoco sulla gomma che ha aperto il pannello. Le mattonelle
+   * vengono ridisegnate sostituendo l'`outerHTML`, quindi l'elemento memorizzato
+   * può non essere più nel documento: si ritrova per id.
+   */
+  function ripristinaFuoco() {
+    const prec = fuocoPrec;
+    fuocoPrec = null;
+    if (!prec) return;
+    const perId = prec.id ? document.getElementById(prec.id) : null;
+    const bersaglio = perId ?? (document.contains(prec) ? prec : null);
+    if (bersaglio && typeof bersaglio.focus === 'function') bersaglio.focus();
+  }
+
+  /**
+   * Porta il fuoco sul pannello. `.sheet.open` rende `visibility` immediata
+   * proprio perché un elemento `hidden` non accetta il fuoco; se una vecchia
+   * cache del foglio di stile dicesse altro, si riprova a transizione avviata.
+   */
+  function mettiFuoco() {
+    sheet.focus();
+    if (document.activeElement === sheet) return;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (ruotaAperta) sheet.focus();
+    }));
+  }
+
   function apriSheet(codice) {
+    // Il cambio ruota con Prec./Succ. non deve perdere la gomma di partenza.
+    if (!ruotaAperta) fuocoPrec = document.activeElement;
     ruotaAperta = codice;
     sheet.innerHTML = htmlSheet(codice);
     backdrop.classList.add('open');
     sheet.classList.add('open');
     sheet.scrollTop = 0;
+    mettiFuoco();
   }
 
   function chiudiSheet() {
@@ -284,6 +351,7 @@ export function render(ctx) {
     sheet.classList.remove('open');
     salvaOra(false);
     aggiornaRuote();
+    ripristinaFuoco();
   }
 
   /** Ricalcola il badge del pannello mentre si digitano le temperature. */
@@ -315,7 +383,9 @@ export function render(ctx) {
   document.addEventListener('change', suCampo);
 
   function suTasto(ev) {
-    if (ev.key === 'Escape' && ruotaAperta) chiudiSheet();
+    if (!ruotaAperta) return;
+    if (ev.key === 'Escape') chiudiSheet();
+    else if (ev.key === 'Tab') trappolaFuoco(ev);
   }
   document.addEventListener('keydown', suTasto);
 
@@ -357,6 +427,7 @@ export function render(ctx) {
   azioni.ruota = (el) => apriSheet(el.dataset.cod);
   azioni['vai-ruota'] = (el) => {
     salvaOra(false);
+    aggiornaRuote(); // le mattonelle dietro al pannello restano allineate
     apriSheet(el.dataset.cod);
   };
   azioni['chiudi-sheet'] = () => chiudiSheet();

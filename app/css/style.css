@@ -621,7 +621,14 @@ hr.sep { border: 0; border-top: 1px solid var(--border); margin: 2px 0; }
   visibility: hidden;
   transition: transform .2s ease-out, visibility .2s ease-out;
 }
-.sheet.open { transform: translateY(0); visibility: visible; }
+/* Aprendo, la visibilità cambia subito: con la transizione il pannello resta
+   `hidden` per un fotogramma e rifiuta il fuoco. Chiudendo, invece, la
+   transizione serve: aspetta che lo scorrimento verso il basso sia finito. */
+.sheet.open {
+  transform: translateY(0);
+  visibility: visible;
+  transition: transform .2s ease-out, visibility 0s;
+}
 
 .sheet-handle {
   width: 42px;
