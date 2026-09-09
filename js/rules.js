@@ -37,7 +37,7 @@ const AZIONE = {
   vetrificata: 'Alzare le pressioni di partenza o scegliere una mescola più morbida.',
 };
 
-/** Sul fondo sterrato gli strappi pesano di piu: la mescola e chiaramente sbagliata. */
+/** Sul fondo sterrato gli strappi pesano di più: la mescola è chiaramente sbagliata. */
 const intensitaDegrado = (codice, fondo) =>
   (codice === 'chunking' ? (fondo === 'terra' ? 'forte' : 'media') : 'media');
 

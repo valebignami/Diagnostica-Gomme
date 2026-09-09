@@ -12,7 +12,7 @@ export function oggi(d = new Date()) {
 /**
  * Identificatore unico. `crypto.randomUUID` esiste solo negli origin sicuri
  * (https o localhost): aperta da un indirizzo di rete locale in http l'app
- * deve funzionare lo stesso, quindi c'e un ripiego buono a sufficienza.
+ * deve funzionare lo stesso, quindi c'è un ripiego buono a sufficienza.
  */
 export function nuovoId() {
   if (typeof crypto === 'object' && typeof crypto.randomUUID === 'function') {
@@ -79,7 +79,7 @@ const ruotaO = (r) => {
 
 /**
  * Riporta una sessione qualsiasi alla forma attesa dal resto dell'app, oppure
- * `null` se non e nemmeno una sessione (niente oggetto, niente id). Un backup
+ * `null` se non è nemmeno una sessione (niente oggetto, niente id). Un backup
  * scritto a mano o troncato non deve mandare in errore la schermata.
  */
 export function normalizzaSessione(grezza) {
@@ -105,7 +105,7 @@ export function normalizzaSessione(grezza) {
 }
 
 /**
- * Vera se nella sessione non e stato scritto niente: serve a non lasciare in
+ * Vera se nella sessione non è stato scritto niente: serve a non lasciare in
  * elenco le sessioni aperte per sbaglio con il tasto "Nuova".
  */
 export function sessioneIntatta(sessione) {
