@@ -15,9 +15,6 @@ const media3 = (t) => (t.int + t.cen + t.est) / 3;
 // Due decimali, senza zeri finali inutili: 0,15 resta 0,15 e 0,20 diventa 0,2.
 const bar = (v) => v.toFixed(2).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',');
 const gradi = (v) => v.toFixed(0);
-// "i 5 °C" ma "gli 8 °C": in italiano l'articolo cambia davanti ai numeri che
-// si leggono con una vocale iniziale (otto, undici, ottanta e i suoi).
-const articolo = (n) => (/^(8|11|8\d)$/.test(n) ? 'gli' : 'i');
 
 // --- degrado -----------------------------------------------------------------
 
@@ -74,12 +71,29 @@ function regoleRuota(codice, r, s, fondo, out) {
   let liv = livello(Math.abs(scarto), s.camber);
   if (liv) {
     const troppo = scarto > 0;
-    const lato = dCamber >= 0 ? 'interna' : 'esterna';
-    const teso = gradi(atteso);
+    // Lato che scalda di più in pratica (null se le due spalle sono pari) e
+    // lato che dovrebbe scaldare di più con il camber a posto: nominarli
+    // entrambi evita l'ambiguità di dire solo "atteso N °C" senza dire quale
+    // spalla dovrebbe essere la più calda.
+    const latoReale = dCamber > 0 ? 'interna' : dCamber < 0 ? 'esterna' : null;
+    const latoAtteso = atteso >= 0 ? "l'interna" : "l'esterna";
+    const magAtteso = gradi(Math.abs(atteso));
+    const verbo = troppo ? 'ridurre' : 'aumentare';
+    let testo;
+    if (latoReale === null) {
+      testo = `${nome}: le due spalle sono alla stessa temperatura, ` +
+              `mentre ci si aspetta ${latoAtteso} più calda di circa ${magAtteso} °C: ${verbo} il camber negativo.`;
+    } else {
+      const magReale = gradi(Math.abs(dCamber));
+      testo = (troppo && (latoReale === 'interna') === (atteso >= 0))
+        ? `${nome}: spalla ${latoReale} più calda di ${magReale} °C, ` +
+          `mentre ci si aspetta una differenza di circa ${magAtteso} °C: ${verbo} il camber negativo.`
+        : `${nome}: spalla ${latoReale} più calda di ${magReale} °C, ` +
+          `mentre ci si aspetta ${latoAtteso} più calda di circa ${magAtteso} °C: ${verbo} il camber negativo.`;
+    }
     out.push({ ambito: codice, area: 'camber', intensita: liv,
       titolo: troppo ? 'Troppo camber negativo' : 'Camber insufficiente',
-      testo: `${nome}: spalla ${lato} più calda di ${gradi(Math.abs(dCamber))} °C, ` +
-             `contro ${articolo(teso)} ${teso} °C attesi: ${troppo ? 'ridurre' : 'aumentare'} il camber negativo.` });
+      testo });
   }
   const dPress = cen - (int + est) / 2;
   liv = livello(Math.abs(dPress), s.pressione);
