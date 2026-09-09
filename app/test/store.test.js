@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { creaStore, nuovaSessione, nuovoId, sessioneIntatta, CHIAVE } from '../js/store.js';
-import { RUOTE } from '../js/config.js';
+import { RUOTE, SOGLIE_DEFAULT, MESCOLE_DEFAULT } from '../js/config.js';
+import { diagnosi } from '../js/rules.js';
 
 const memoria = () => { const m = new Map(); return { getItem: k => m.has(k) ? m.get(k) : null, setItem: (k, v) => m.set(k, v) }; };
 
@@ -22,12 +23,14 @@ test('elenco ordinato per data decrescente', () => {
 
 test('duplica mantiene intestazione e pressioni a freddo, azzera temperature', () => {
   const st = creaStore(memoria());
-  const s = nuovaSessione({ evento: 'X', tempAsfalto: 30 });
+  const s = nuovaSessione({ evento: 'X', tempAsfalto: 30, data: '2026-05-04' });
   s.ruote.AS.pressFredda = 1.8; s.ruote.AS.fine.int = 90; s.ruote.AS.degrado = 'graining';
   st.salvaSessione(s);
   const d = st.duplicaSessione(s.id);
   assert.notEqual(d.id, s.id);
   assert.equal(d.evento, 'X');
+  // La data della prova originale non viene spostata a oggi.
+  assert.equal(d.data, '2026-05-04');
   assert.equal(d.ruote.AS.pressFredda, 1.8);
   assert.equal(d.ruote.AS.fine.int, null);
   assert.equal(d.ruote.AS.degrado, 'regolare');
@@ -251,6 +254,64 @@ test('importa scarta le voci che non sono sessioni e lo dice', () => {
   assert.deepEqual(esito, { importate: 1, scartate: 3 });
   assert.equal(st.elencaSessioni().length, 1);
   assert.equal(st.elencaSessioni()[0].id, 'buona');
+});
+
+test('importa ricostruisce soglie monche invece di lasciare il motore senza numeri', () => {
+  const st = creaStore(memoria());
+  st.importa(JSON.stringify({
+    versione: 1,
+    sessioni: [],
+    soglie: { asfalto: {}, terra: { camber: { media: 'venti', forte: 30 }, salita: null } },
+  }));
+  const s = st.getSoglie();
+  // Fondo vuoto: tutto di fabbrica.
+  assert.deepEqual(s.asfalto, SOGLIE_DEFAULT.asfalto);
+  // Fondo parziale: si tiene solo ciò che è un numero, il resto è di fabbrica.
+  assert.equal(s.terra.camber.forte, 30);
+  assert.equal(s.terra.camber.media, SOGLIE_DEFAULT.terra.camber.media);
+  assert.equal(s.terra.camber.leggera, SOGLIE_DEFAULT.terra.camber.leggera);
+  assert.equal(s.terra.salita, SOGLIE_DEFAULT.terra.salita);
+  assert.equal(s.terra.camberTarget, SOGLIE_DEFAULT.terra.camberTarget);
+});
+
+test('importa scarta le mescole inutilizzabili e raddrizza le finestre rovesciate', () => {
+  const st = creaStore(memoria());
+  st.importa(JSON.stringify({
+    versione: 1,
+    sessioni: [],
+    mescole: [
+      null,
+      'non un oggetto',
+      { nome: 'Senza id', fondo: 'asfalto', min: 60, max: 80 },
+      { id: 'rovesciata', nome: 'Rovesciata', fondo: 'asfalto', min: 95, max: 70 },
+      { id: 'monca', fondo: 'terra' },
+    ],
+  }));
+  const m = st.getMescole();
+  assert.equal(m.some((x) => x.nome === 'Senza id'), false);
+  const r = m.find((x) => x.id === 'rovesciata');
+  assert.deepEqual([r.min, r.max], [70, 95]);
+  const monca = m.find((x) => x.id === 'monca');
+  assert.equal(monca.nome, 'Mescola');
+  assert.equal(monca.fondo, 'terra');
+  assert.ok(monca.min < monca.max);
+  // Ogni fondo ha almeno una mescola: senza finestra la diagnosi non saprebbe dire nulla.
+  for (const fondo of ['asfalto', 'terra']) assert.ok(m.some((x) => x.fondo === fondo), fondo);
+});
+
+test('un backup con soglie e mescole malformate lascia l app usabile', () => {
+  const st = creaStore(memoria());
+  st.importa('{"versione":1,"sessioni":[],"soglie":{"asfalto":{}},"mescole":[null]}');
+  const soglie = st.getSoglie();
+  const mescole = st.getMescole();
+  assert.deepEqual(soglie, SOGLIE_DEFAULT);
+  assert.equal(mescole.length, MESCOLE_DEFAULT.length);
+  // Il motore gira senza lanciare e le viste trovano la mescola di partenza.
+  const s = nuovaSessione();
+  s.ruote.AS.fine = { int: 90, cen: 88, est: 82 };
+  const res = diagnosi(s, soglie, mescole);
+  assert.ok(Array.isArray(res.suggerimenti));
+  assert.ok(mescole.some((m) => m.id === s.mescola));
 });
 
 test('importa riporta un degrado sconosciuto a usura regolare', () => {
