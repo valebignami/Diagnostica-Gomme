@@ -1,5 +1,5 @@
 /* Service worker: cache-first per il guscio dell'app, così funziona offline. */
-const VERSIONE = 'gomme-v3';
+const VERSIONE = 'gomme-v4';
 const GUSCIO = [
   './',
   './index.html',
@@ -14,6 +14,7 @@ const GUSCIO = [
   './js/ui.js',
   './js/views/sessioni.js',
   './js/views/sessione.js',
+  './js/views/diagnosi.js',
 ];
 
 self.addEventListener('install', (e) => {
