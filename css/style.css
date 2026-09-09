@@ -512,6 +512,9 @@ hr.sep { border: 0; border-top: 1px solid var(--border); margin: 2px 0; }
   -webkit-tap-highlight-color: transparent;
 }
 .tyre:active { transform: scale(.98); }
+/* nella diagnosi la mattonella è di sola lettura: niente cursore da tasto */
+div.tyre { cursor: default; }
+div.tyre:active { transform: none; }
 
 .tyre-code {
   font-family: var(--font-head);
@@ -718,8 +721,45 @@ hr.sep { border: 0; border-top: 1px solid var(--border); margin: 2px 0; }
 .diagnosi-item:first-child { padding-top: 0; }
 .diagnosi-item:last-child { padding-bottom: 0; border-bottom: 0; }
 .diagnosi-head { display: flex; align-items: center; gap: 10px; }
-.diagnosi-titolo { font-weight: 600; font-size: 15px; flex: 1 1 auto; }
-.diagnosi-testo { font-size: 13.5px; color: var(--muted); }
+.diagnosi-titolo { font-weight: 600; font-size: 15px; flex: 1 1 auto; margin: 0; }
+.diagnosi-testo { font-size: 13.5px; color: var(--muted); margin: 0; }
+.diagnosi-area {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* un suggerimento per card, ravvicinate: in piedi accanto alla macchina
+   conta quanti se ne leggono senza scorrere */
+.sug-gruppo { display: flex; flex-direction: column; gap: 8px; }
+.card-sug { gap: 5px; padding: 12px 14px; border-left: 3px solid var(--border); }
+.card-sug.sug-forte   { border-left-color: var(--forte); }
+.card-sug.sug-media   { border-left-color: var(--media); }
+.card-sug.sug-leggera { border-left-color: var(--leggera); }
+
+/* conteggio dei suggerimenti per intensità */
+.stat-forte .stat-value   { color: var(--forte); }
+.stat-media .stat-value   { color: var(--media); }
+.stat-leggera .stat-value { color: var(--leggera); }
+.stat-forte .stat-label,
+.stat-media .stat-label,
+.stat-leggera .stat-label { letter-spacing: .1em; }
+.stat-testo .stat-value { font-size: 15px; line-height: 1.2; overflow-wrap: anywhere; }
+
+/* dati mancanti (ambra) e setup a posto (verde) */
+.card-avviso {
+  border-color: rgba(255, 138, 61, .45);
+  background: linear-gradient(180deg, rgba(255, 138, 61, .10), transparent 62%), var(--surface);
+}
+.card-avviso .card-title { color: var(--media); }
+.card-ok {
+  border-color: rgba(61, 220, 132, .45);
+  background: linear-gradient(180deg, rgba(61, 220, 132, .10), transparent 62%), var(--surface);
+}
+.card-ok .card-title { color: var(--ok); }
+.avvisi { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--muted); }
 
 /* --- 14. Card dell'elenco sessioni -------------------------------------- */
 .card-sessione { position: relative; padding: 0; gap: 0; overflow: hidden; }

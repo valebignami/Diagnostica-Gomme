@@ -7,6 +7,7 @@
  * importano da qui senza creare cicli con `app.js`.
  */
 
+import { RUOTE, ETICHETTE_RUOTE } from './config.js';
 import { TRATTINO, fmtNum } from './format.js';
 
 /* --- Testo --------------------------------------------------------------- */
@@ -133,3 +134,43 @@ export const LEGENDA_AUTO = `<div class="auto-legenda">
   <span style="color:var(--forte)"><i></i>Calda</span>
   <span><i></i>Senza dati</span>
 </div>`;
+
+/* --- Griglia delle quattro ruote ----------------------------------------- */
+
+/**
+ * Una mattonella `.tyre`: sigla, media di fine prova e pressione a freddo,
+ * colorata con lo stato termico rispetto al range della mescola.
+ *
+ * Con `interattiva` esce un `<button>` con `id="tyre-AS"` e
+ * `data-azione="ruota"` (la sessione lo tocca per aprire il pannello e lo
+ * ridisegna sostituendo l'`outerHTML`); senza, un riquadro di sola lettura.
+ */
+export function tyreRuota(sessione, codice, mescola, { interattiva = false } = {}) {
+  const r = sessione?.ruote?.[codice] ?? {};
+  const media = mediaFine(r);
+  const stato = statoRuota(media, mescola);
+  const press = typeof r.pressFredda === 'number' ? `${fmtNum(r.pressFredda, 2)} bar` : 'da rilevare';
+  const corpo = `
+      <span class="tyre-code">${escapeHtml(codice)}</span>
+      <span class="tyre-temp">${gradi(media)}<small>°</small></span>
+      <span class="tyre-press">${escapeHtml(press)}</span>`;
+  const nome = ETICHETTE_RUOTE[codice] ?? codice;
+  if (!interattiva) {
+    const valore = media == null ? 'senza dati' : `${gradi(media)} gradi`;
+    return `<div class="tyre ${CLASSE_STATO[stato]}" role="img"
+      aria-label="${escapeHtml(`${nome}: ${valore}, ${ETICHETTA_STATO[stato].toLowerCase()}`)}">${corpo}</div>`;
+  }
+  return `<button type="button" class="tyre ${CLASSE_STATO[stato]}" id="tyre-${escapeHtml(codice)}"
+      data-azione="ruota" data-cod="${escapeHtml(codice)}"
+      aria-label="${escapeHtml(`${nome}, ${ETICHETTA_STATO[stato].toLowerCase()}`)}">${corpo}</button>`;
+}
+
+/** Silhouette, le quattro mattonelle e la legenda dei colori. */
+export function autoRuote(sessione, mescole, opzioni) {
+  const mescola = mescolaDi(sessione, mescole);
+  return `<div class="auto">
+        ${SILHOUETTE}
+        ${RUOTE.map((c) => tyreRuota(sessione, c, mescola, opzioni)).join('')}
+      </div>
+      ${LEGENDA_AUTO}`;
+}

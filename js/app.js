@@ -19,6 +19,7 @@ import { creaStore, nuovaSessione } from './store.js';
 import { escapeHtml } from './ui.js';
 import * as vistaSessioni from './views/sessioni.js';
 import * as vistaSessione from './views/sessione.js';
+import * as vistaDiagnosi from './views/diagnosi.js';
 
 export { escapeHtml };
 
@@ -83,7 +84,7 @@ document.addEventListener('click', (ev) => {
 
 /* --- Rotte ---------------------------------------------------------------- */
 
-/** Segnaposto per le schermate dei Task 6 e 7. */
+/** Segnaposto per le schermate del Task 7. */
 const inArrivo = (titolo, testo) => ({
   render(ctx) {
     ctx.render(`
@@ -103,8 +104,7 @@ const inArrivo = (titolo, testo) => ({
 const ROTTE = [
   { percorso: '/sessioni', tab: 'sessioni', etichetta: 'Sessioni', vista: vistaSessioni },
   { percorso: '/sessione/:id', tab: 'sessioni', etichetta: 'Sessione', vista: vistaSessione },
-  // Task 6: sostituire con `import * as vistaDiagnosi from './views/diagnosi.js'`.
-  { percorso: '/diagnosi/:id', tab: 'sessioni', etichetta: 'Diagnosi', vista: inArrivo('Diagnosi', 'I suggerimenti di assetto arrivano con il prossimo passaggio di lavoro.') },
+  { percorso: '/diagnosi/:id', tab: 'sessioni', etichetta: 'Diagnosi', vista: vistaDiagnosi },
   // Task 7: `./views/confronto.js` e `./views/impostazioni.js`.
   { percorso: '/confronto', tab: 'confronto', etichetta: 'Confronto', vista: inArrivo('Confronto', 'Il confronto fra due sessioni arriva con il prossimo passaggio di lavoro.') },
   { percorso: '/impostazioni', tab: 'impostazioni', etichetta: 'Impostazioni', vista: inArrivo('Impostazioni', 'Soglie, mescole, backup e ripristino arrivano con il prossimo passaggio di lavoro.') },

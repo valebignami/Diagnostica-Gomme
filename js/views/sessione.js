@@ -11,10 +11,10 @@ import { RUOTE, ETICHETTE_RUOTE, DEGRADO } from '../config.js';
 import { fmtNum } from '../format.js';
 import {
   escapeHtml, parseNumero, valoreCampo, impostaPercorso,
-  mediaFine, mescolaDi, statoRuota, gradi,
-  CLASSE_STATO, BADGE_STATO, ETICHETTA_STATO,
+  mediaFine, mescolaDi, statoRuota,
+  BADGE_STATO, ETICHETTA_STATO,
   FONDI, CONDIZIONI,
-  SILHOUETTE, LEGENDA_AUTO,
+  tyreRuota, autoRuote,
 } from '../ui.js';
 
 /* --- Frammenti di markup -------------------------------------------------- */
@@ -104,19 +104,8 @@ export function render(ctx) {
 
   /* --- Ruote -------------------------------------------------------------- */
 
-  function htmlRuota(codice) {
-    const r = sessione.ruote?.[codice] ?? {};
-    const media = mediaFine(r);
-    const stato = statoRuota(media, mescolaDi(sessione, mescole));
-    const press = typeof r.pressFredda === 'number' ? `${fmtNum(r.pressFredda, 2)} bar` : 'da rilevare';
-    return `<button type="button" class="tyre ${CLASSE_STATO[stato]}" id="tyre-${codice}"
-      data-azione="ruota" data-cod="${codice}"
-      aria-label="${escapeHtml(ETICHETTE_RUOTE[codice])}, ${ETICHETTA_STATO[stato].toLowerCase()}">
-      <span class="tyre-code">${codice}</span>
-      <span class="tyre-temp">${gradi(media)}<small>°</small></span>
-      <span class="tyre-press">${escapeHtml(press)}</span>
-    </button>`;
-  }
+  const htmlRuota = (codice) =>
+    tyreRuota(sessione, codice, mescolaDi(sessione, mescole), { interattiva: true });
 
   function aggiornaRuote() {
     for (const codice of RUOTE) {
@@ -180,11 +169,7 @@ export function render(ctx) {
     <section class="card">
       <h2 class="card-title">Ruote</h2>
       <p class="card-sub">Tocca una gomma per inserire pressioni, temperature e degrado.</p>
-      <div class="auto">
-        ${SILHOUETTE}
-        ${RUOTE.map(htmlRuota).join('')}
-      </div>
-      ${LEGENDA_AUTO}
+      ${autoRuote(sessione, mescole, { interattiva: true })}
     </section>
 
     <button type="button" class="btn btn-primary btn-block" data-azione="diagnosi">Vai alla diagnosi</button>
