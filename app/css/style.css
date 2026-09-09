@@ -3,6 +3,35 @@
    Tema scuro unico, mobile-first, colonna da 520px centrata su desktop.
    ========================================================================== */
 
+/* --- 0. Font ------------------------------------------------------------- */
+/* I font sono ospitati insieme all'app: niente richieste a Google, quindi
+   l'aspetto è identico anche senza rete e nessun dato esce dal telefono. */
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../fonts/barlow-condensed-600.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Barlow Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/barlow-condensed-700.woff2") format("woff2");
+}
+
+/* File variabile: copre da solo 400, 500 e 600. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("../fonts/inter-var.woff2") format("woff2");
+}
+
 /* --- 1. Variabili -------------------------------------------------------- */
 :root {
   /* superfici */

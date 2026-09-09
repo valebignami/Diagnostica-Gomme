@@ -28,9 +28,13 @@ export { escapeHtml };
 /* --- Service worker ------------------------------------------------------ */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {
-      /* offline non disponibile: l'app funziona lo stesso */
-    });
+    // `updateViaCache: 'none'` impedisce al browser di riusare una vecchia copia
+    // di sw.js; `update()` va a controllare subito se ne esiste una nuova.
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then((registrazione) => registrazione.update())
+      .catch(() => {
+        /* offline non disponibile: l'app funziona lo stesso */
+      });
   });
 }
 

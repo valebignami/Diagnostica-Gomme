@@ -1,10 +1,18 @@
 /* Service worker: cache-first per il guscio dell'app, così funziona offline. */
-const VERSIONE = 'gomme-v5';
+/* CAMBIA QUESTA DATA A OGNI PUBBLICAZIONE: è l'unico modo perché i telefoni
+   già installati scarichino i file nuovi invece di riusare quelli in cache. */
+const VERSIONE = 'gomme-2026-09-09';
 const GUSCIO = [
   './',
   './index.html',
   './manifest.json',
   './icon.svg',
+  './icon-180.png',
+  './icon-192.png',
+  './icon-512.png',
+  './fonts/barlow-condensed-600.woff2',
+  './fonts/barlow-condensed-700.woff2',
+  './fonts/inter-var.woff2',
   './css/style.css',
   './js/app.js',
   './js/config.js',
