@@ -74,14 +74,20 @@ rete.
 L'app tiene una copia di sé stessa sul telefono per funzionare senza rete.
 Finché quella copia ha lo stesso nome, il telefono continua a usarla e le
 modifiche non si vedono. Perciò, **ogni volta che pubblichi**, apri il file
-`app/sw.js` e cambia la data nella riga in cima:
+`app/sw.js` e cambia la stringa nella riga in cima:
 
 ```
-const VERSIONE = 'gomme-2026-09-09';
+const VERSIONE = 'gomme-2026-09-09-1';
 ```
 
-Metti la data del giorno (per esempio `gomme-2026-10-14`) e ripubblica: al
+L'unica cosa che conta è che risulti **diversa dalla volta prima**: metti la
+data del giorno (per esempio `gomme-2026-10-14-1`) e, se pubblichi una seconda
+volta nello stesso giorno, alza il numero finale (`-2`, `-3`, …). Ripubblica: al
 primo avvio con un po' di rete i telefoni scaricano i file nuovi.
+
+La stessa stringa va copiata in `app/js/views/impostazioni.js` (riga
+`const VERSIONE_CACHE = …`), che la mostra nella schermata Impostazioni: così,
+al telefono, si vede quale copia sta usando un pilota.
 
 La stessa stringa va scritta anche in `app/js/views/impostazioni.js`, nella
 costante `VERSIONE_CACHE` in cima al file: è quella che la schermata
@@ -141,8 +147,8 @@ numeri. Devono essere tutti verdi prima di pubblicare una modifica.
 app/                 l'applicazione (è questa che si pubblica)
   index.html         la pagina, unica: le schermate si alternano dentro
   manifest.json      nome e icona per l'installazione sulla home
-  sw.js              fa funzionare l'app senza rete  ← la data si cambia a ogni
-                     pubblicazione
+  sw.js              fa funzionare l'app senza rete  ← la stringa in cima si
+                     cambia a ogni pubblicazione
   icon.svg           l'icona
   icon-180.png       l'icona per la home di iPhone
   icon-192.png       le icone per l'installazione su Android
