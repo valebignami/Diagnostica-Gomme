@@ -134,6 +134,68 @@ const statoDefault = () => ({
   mescole: structuredClone(MESCOLE_DEFAULT),
 });
 
+/* --- Normalizzazione di soglie e mescole ---------------------------------- */
+
+/**
+ * Ricalca la forma di `SOGLIE_DEFAULT` chiave per chiave tenendo dell'input
+ * solo i numeri finiti. Un backup con `soglie: { asfalto: {} }` non deve
+ * lasciare il motore senza soglie: là dove il dato manca o non è un numero
+ * torna il valore di fabbrica.
+ */
+function fondiSoglie(grezze, difetto) {
+  const o = grezze && typeof grezze === 'object' && !Array.isArray(grezze) ? grezze : {};
+  const fuso = {};
+  for (const [chiave, valore] of Object.entries(difetto)) {
+    if (valore && typeof valore === 'object') fuso[chiave] = fondiSoglie(o[chiave], valore);
+    else fuso[chiave] = numeroO(o[chiave]) ?? valore;
+  }
+  return fuso;
+}
+
+export function soglieO(x) {
+  const o = x && typeof x === 'object' && !Array.isArray(x) ? x : {};
+  return Object.fromEntries(
+    Object.entries(SOGLIE_DEFAULT).map(([fondo, difetto]) => [fondo, fondiSoglie(o[fondo], difetto)])
+  );
+}
+
+/** Finestra di ripiego per un fondo: quella della prima mescola di fabbrica. */
+const finestraDiFabbrica = (fondo) =>
+  MESCOLE_DEFAULT.find((m) => m.fondo === fondo) ?? MESCOLE_DEFAULT[0];
+
+/**
+ * Tiene solo le mescole utilizzabili: scarta ciò che non è un oggetto con un
+ * id, ripara nome, fondo e finestra di lavoro. Se dopo la pulizia un fondo
+ * resta scoperto, ci rimette le mescole di fabbrica di quel fondo: senza
+ * finestra di lavoro la diagnosi non sa dire se la gomma è fredda o calda.
+ */
+export function mescoleO(x) {
+  const grezze = Array.isArray(x) ? x : [];
+  const pulite = [];
+  for (const m of grezze) {
+    if (!m || typeof m !== 'object' || Array.isArray(m)) continue;
+    const id = typeof m.id === 'string' && m.id !== '' ? m.id : null;
+    if (id === null || pulite.some((p) => p.id === id)) continue;
+    const fondo = FONDI_VALIDI.has(m.fondo) ? m.fondo : 'asfalto';
+    const difetto = finestraDiFabbrica(fondo);
+    let min = numeroO(m.min) ?? difetto.min;
+    let max = numeroO(m.max) ?? difetto.max;
+    if (min >= max) [min, max] = [max, min];
+    if (min >= max) { min = difetto.min; max = difetto.max; }
+    const nome = typeof m.nome === 'string' && m.nome.trim() !== '' ? m.nome : 'Mescola';
+    pulite.push({ id, nome, fondo, min, max });
+  }
+  const scoperti = [...FONDI_VALIDI].filter((f) => !pulite.some((m) => m.fondo === f));
+  if (pulite.length === 0 || scoperti.length) {
+    for (const f of scoperti) {
+      for (const m of MESCOLE_DEFAULT.filter((d) => d.fondo === f)) {
+        if (!pulite.some((p) => p.id === m.id)) pulite.push(structuredClone(m));
+      }
+    }
+  }
+  return pulite;
+}
+
 /** Ritorna uno stato valido a partire da dati grezzi, oppure `null` se incompatibili. */
 function normalizza(dati) {
   if (!dati || typeof dati !== 'object') return null;
@@ -146,8 +208,8 @@ function normalizza(dati) {
   return {
     versione: VERSIONE,
     sessioni,
-    soglie: dati.soglie && typeof dati.soglie === 'object' ? structuredClone(dati.soglie) : structuredClone(SOGLIE_DEFAULT),
-    mescole: Array.isArray(dati.mescole) ? structuredClone(dati.mescole) : structuredClone(MESCOLE_DEFAULT),
+    soglie: soglieO(dati.soglie),
+    mescole: mescoleO(dati.mescole),
   };
 }
 
@@ -232,6 +294,9 @@ export function creaStore(storage = globalThis.localStorage ?? memoriaVolatile()
     const orig = trova(id);
     if (!orig) throw new Error('Sessione non trovata.');
     const nuova = nuovaSessione({
+      // La data resta quella della prova originale: duplicare il passaggio di
+      // ieri non deve spostarlo a oggi di nascosto.
+      data: typeof orig.data === 'string' && orig.data !== '' ? orig.data : oggi(),
       evento: orig.evento,
       prova: orig.prova,
       fondo: orig.fondo,
