@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Diagnostica Gomme">
+  <rect width="512" height="512" fill="#0f1115"/>
+  <g transform="translate(256 256)">
+    <!-- battistrada -->
+    <circle r="150" fill="none" stroke="#d7dae0" stroke-width="46"/>
+    <!-- intagli trasversali -->
+    <circle r="150" fill="none" stroke="#0f1115" stroke-width="48" stroke-dasharray="15 24.27" stroke-dashoffset="7.5"/>
+    <!-- scanalatura circonferenziale -->
+    <circle r="150" fill="none" stroke="#0f1115" stroke-width="11"/>
+    <!-- cerchio e mozzo, accento rosso -->
+    <circle r="100" fill="#181b22" stroke="#ff3b1f" stroke-width="12"/>
+    <circle r="30" fill="#ff3b1f"/>
+  </g>
+</svg>

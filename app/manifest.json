@@ -1,0 +1,22 @@
+{
+  "name": "Diagnostica Gomme",
+  "short_name": "Gomme",
+  "description": "Diagnosi delle gomme da rally: temperature, pressioni e suggerimenti di assetto.",
+  "lang": "it",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "categories": ["utilities", "sports"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
