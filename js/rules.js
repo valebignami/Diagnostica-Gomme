@@ -12,7 +12,8 @@ const alza = (i) => ORDINE[Math.min(ORDINE.indexOf(i) + 1, 2)];
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 const completa = (r) => r && r.fine && num(r.fine.int) && num(r.fine.cen) && num(r.fine.est);
 const media3 = (t) => (t.int + t.cen + t.est) / 3;
-const bar = (v) => v.toFixed(1).replace('.', ',');
+// Due decimali, senza zeri finali inutili: 0,15 resta 0,15 e 0,20 diventa 0,2.
+const bar = (v) => v.toFixed(2).replace(/0+$/, '').replace(/\.$/, '').replace('.', ',');
 const gradi = (v) => v.toFixed(0);
 
 // --- degrado -----------------------------------------------------------------
@@ -36,7 +37,11 @@ const AZIONE = {
   vetrificata: 'Alzare le pressioni di partenza o scegliere una mescola più morbida.',
 };
 
-function applicaDegrado(codice, codiceDegrado, out) {
+/** Sul fondo sterrato gli strappi pesano di piu: la mescola e chiaramente sbagliata. */
+const intensitaDegrado = (codice, fondo) =>
+  (codice === 'chunking' ? (fondo === 'terra' ? 'forte' : 'media') : 'media');
+
+function applicaDegrado(codice, codiceDegrado, fondo, out) {
   const d = PER_CODICE[codiceDegrado];
   if (!d || d.codice === 'regolare') return;
   const bersagli = RAFFORZA[d.codice] || [];
@@ -44,13 +49,13 @@ function applicaDegrado(codice, codiceDegrado, out) {
     if (sug.ambito !== codice) continue;
     if (bersagli.some((b) => b.area === sug.area && b.titolo.test(sug.titolo))) sug.intensita = alza(sug.intensita);
   }
-  out.push({ ambito: codice, area: 'degrado', intensita: 'media', titolo: d.etichetta,
+  out.push({ ambito: codice, area: 'degrado', intensita: intensitaDegrado(d.codice, fondo), titolo: d.etichetta,
     testo: `${ETICHETTE_RUOTE[codice]}: ${d.descrizione} ${AZIONE[d.codice]}` });
 }
 
 // --- regole per singola ruota ------------------------------------------------
 
-function regoleRuota(codice, r, s, out) {
+function regoleRuota(codice, r, s, fondo, out) {
   const { int, cen, est } = r.fine;
   const nome = ETICHETTE_RUOTE[codice];
   const dCamber = int - est;
@@ -79,7 +84,7 @@ function regoleRuota(codice, r, s, out) {
                `La gomma lavora troppo: verificare pressione di partenza e mescola.` });
     }
   }
-  applicaDegrado(codice, r.degrado, out);
+  applicaDegrado(codice, r.degrado, fondo, out);
 }
 
 // --- regole di assale e di lato ----------------------------------------------
@@ -152,14 +157,19 @@ export function diagnosi(sessione, soglie = SOGLIE_DEFAULT, mescole = MESCOLE_DE
     if (!completa(r)) { avvisi.push(`${ETICHETTE_RUOTE[codice]}: mancano le temperature di fine prova.`); continue; }
     medie[codice] = media3(r.fine);
     if (r.degrado) degradi.add(r.degrado);
-    regoleRuota(codice, r, s, suggerimenti);
+    regoleRuota(codice, r, s, sessione.fondo, suggerimenti);
   }
   regoleGruppo(medie, s, suggerimenti);
   const complete = RUOTE.map((c) => medie[c]).filter(num);
-  const m = mescole.find((x) => x.id === sessione.mescola);
-  if (m && complete.length) {
+  const m = mescole.find((x) => x.id === sessione.mescola) ?? null;
+  if (!m) {
+    // Senza finestra di lavoro non si puo dire se la gomma e fredda o calda:
+    // meglio dirlo che restituire una diagnosi tutta verde.
+    avvisi.push('Mescola non trovata: controlla le impostazioni. Regole su mescola e asfalto saltate.');
+  } else if (complete.length) {
     const mediaAuto = complete.reduce((a, b) => a + b, 0) / complete.length;
     regoleMescola(sessione, mediaAuto, m, s, degradi, suggerimenti);
   }
+  if (!num(sessione.tempAsfalto)) avvisi.push('Temperatura asfalto mancante: regole su asfalto saltate.');
   return { suggerimenti, avvisi };
 }
