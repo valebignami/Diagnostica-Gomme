@@ -1,4 +1,4 @@
-import { RUOTE, MESCOLE_DEFAULT, SOGLIE_DEFAULT } from './config.js';
+import { RUOTE, DEGRADO, MESCOLE_DEFAULT, SOGLIE_DEFAULT } from './config.js';
 
 export const CHIAVE = 'diagnostica-gomme';
 export const VERSIONE = 1;
@@ -7,6 +7,22 @@ export const VERSIONE = 1;
 export function oggi(d = new Date()) {
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/**
+ * Identificatore unico. `crypto.randomUUID` esiste solo negli origin sicuri
+ * (https o localhost): aperta da un indirizzo di rete locale in http l'app
+ * deve funzionare lo stesso, quindi c'e un ripiego buono a sufficienza.
+ */
+export function nuovoId() {
+  if (typeof crypto === 'object' && typeof crypto.randomUUID === 'function') {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      /* ripiego qui sotto */
+    }
+  }
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
 }
 
 const ruotaVuota = () => ({
@@ -20,7 +36,7 @@ const ruotaVuota = () => ({
 export function nuovaSessione(campi = {}) {
   const ora = new Date().toISOString();
   return {
-    id: crypto.randomUUID(),
+    id: nuovoId(),
     data: oggi(),
     evento: '',
     prova: '',
@@ -38,6 +54,79 @@ export function nuovaSessione(campi = {}) {
   };
 }
 
+/* --- Normalizzazione di una sessione ------------------------------------- */
+
+const CODICI_DEGRADO = new Set(DEGRADO.map((d) => d.codice));
+const FONDI_VALIDI = new Set(['asfalto', 'terra']);
+const CONDIZIONI_VALIDE = new Set(['asciutto', 'umido', 'bagnato']);
+
+const numeroO = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+const testoO = (v, ripiego) => (typeof v === 'string' ? v : ripiego);
+const ternaO = (t) => {
+  const o = t && typeof t === 'object' ? t : {};
+  return { int: numeroO(o.int), cen: numeroO(o.cen), est: numeroO(o.est) };
+};
+const ruotaO = (r) => {
+  const o = r && typeof r === 'object' ? r : {};
+  return {
+    pressFredda: numeroO(o.pressFredda),
+    pressCalda: numeroO(o.pressCalda),
+    inizio: ternaO(o.inizio),
+    fine: ternaO(o.fine),
+    degrado: CODICI_DEGRADO.has(o.degrado) ? o.degrado : 'regolare',
+  };
+};
+
+/**
+ * Riporta una sessione qualsiasi alla forma attesa dal resto dell'app, oppure
+ * `null` se non e nemmeno una sessione (niente oggetto, niente id). Un backup
+ * scritto a mano o troncato non deve mandare in errore la schermata.
+ */
+export function normalizzaSessione(grezza) {
+  if (!grezza || typeof grezza !== 'object' || Array.isArray(grezza)) return null;
+  if (typeof grezza.id !== 'string' || grezza.id === '') return null;
+  const base = nuovaSessione();
+  return {
+    id: grezza.id,
+    data: testoO(grezza.data, base.data),
+    evento: testoO(grezza.evento, base.evento),
+    prova: testoO(grezza.prova, base.prova),
+    fondo: FONDI_VALIDI.has(grezza.fondo) ? grezza.fondo : base.fondo,
+    condizioni: CONDIZIONI_VALIDE.has(grezza.condizioni) ? grezza.condizioni : base.condizioni,
+    tempAria: numeroO(grezza.tempAria),
+    tempAsfalto: numeroO(grezza.tempAsfalto),
+    mescola: testoO(grezza.mescola, base.mescola),
+    camber: { ant: numeroO(grezza.camber?.ant), post: numeroO(grezza.camber?.post) },
+    ruote: Object.fromEntries(RUOTE.map((c) => [c, ruotaO(grezza.ruote?.[c])])),
+    note: testoO(grezza.note, base.note),
+    creataIl: testoO(grezza.creataIl, base.creataIl),
+    modificataIl: testoO(grezza.modificataIl, base.modificataIl),
+  };
+}
+
+/**
+ * Vera se nella sessione non e stato scritto niente: serve a non lasciare in
+ * elenco le sessioni aperte per sbaglio con il tasto "Nuova".
+ */
+export function sessioneIntatta(sessione) {
+  if (!sessione || typeof sessione !== 'object') return false;
+  if ((sessione.evento ?? '') !== '' || (sessione.prova ?? '') !== '' || (sessione.note ?? '') !== '') return false;
+  if (sessione.tempAria != null || sessione.tempAsfalto != null) return false;
+  if (sessione.camber?.ant != null || sessione.camber?.post != null) return false;
+  for (const c of RUOTE) {
+    const r = sessione.ruote?.[c];
+    if (!r) continue;
+    if (r.pressFredda != null || r.pressCalda != null) return false;
+    for (const fase of ['inizio', 'fine']) {
+      for (const punto of ['int', 'cen', 'est']) {
+        if (r[fase]?.[punto] != null) return false;
+      }
+    }
+    if ((r.degrado ?? 'regolare') !== 'regolare') return false;
+  }
+  return true;
+}
+
 const statoDefault = () => ({
   versione: VERSIONE,
   sessioni: [],
@@ -49,9 +138,14 @@ const statoDefault = () => ({
 function normalizza(dati) {
   if (!dati || typeof dati !== 'object') return null;
   if (dati.versione !== VERSIONE || !Array.isArray(dati.sessioni)) return null;
+  const sessioni = [];
+  for (const grezza of dati.sessioni) {
+    const s = normalizzaSessione(grezza);
+    if (s) sessioni.push(s);
+  }
   return {
     versione: VERSIONE,
-    sessioni: structuredClone(dati.sessioni),
+    sessioni,
     soglie: dati.soglie && typeof dati.soglie === 'object' ? structuredClone(dati.soglie) : structuredClone(SOGLIE_DEFAULT),
     mescole: Array.isArray(dati.mescole) ? structuredClone(dati.mescole) : structuredClone(MESCOLE_DEFAULT),
   };
@@ -182,7 +276,11 @@ export function creaStore(storage = globalThis.localStorage ?? memoriaVolatile()
     return JSON.stringify(stato, null, 2);
   }
 
-  /** Sostituisce tutto lo stato con il backup indicato; ritorna il numero di sessioni importate. */
+  /**
+   * Sostituisce tutto lo stato con il backup indicato. Le sessioni illeggibili
+   * vengono scartate invece di far fallire tutta l'importazione: ritorna
+   * `{ importate, scartate }` così la schermata può dirlo.
+   */
   function importa(json) {
     let dati;
     try {
@@ -192,8 +290,9 @@ export function creaStore(storage = globalThis.localStorage ?? memoriaVolatile()
     }
     const nuovo = normalizza(dati);
     if (!nuovo) throw new Error(`File non compatibile: serve un backup con versione ${VERSIONE} e l'elenco delle sessioni.`);
+    const totale = dati.sessioni.length;
     commit(nuovo);
-    return stato.sessioni.length;
+    return { importate: stato.sessioni.length, scartate: totale - stato.sessioni.length };
   }
 
   return {
