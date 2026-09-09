@@ -1,5 +1,5 @@
 /* Service worker: cache-first per il guscio dell'app, così funziona offline. */
-const VERSIONE = 'gomme-v2';
+const VERSIONE = 'gomme-v3';
 const GUSCIO = [
   './',
   './index.html',
