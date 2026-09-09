@@ -27,7 +27,7 @@ const VERSIONE_APP = '1.0';
  * dell'app, quindi la stringa è scritta in due posti e si cambiano insieme a
  * ogni pubblicazione. Serve a leggere dal telefono quale copia sta girando.
  */
-const VERSIONE_CACHE = 'gomme-2026-09-09';
+const VERSIONE_CACHE = 'gomme-2026-09-09-1';
 
 /* --- Gruppi di soglie ----------------------------------------------------- */
 
